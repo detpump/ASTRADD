@@ -25,5 +25,5 @@ git commit -m "$msg"
 
 echo "Committed: $msg"
 
-# Optional: Push to remote (uncomment if you have a remote)
-# git push origin main
+# Try to push to remote
+git push origin main 2>/dev/null || true
