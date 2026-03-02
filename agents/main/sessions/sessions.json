@@ -64,7 +64,7 @@
   },
   "agent:main:main": {
     "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
-    "updatedAt": 1772492401818,
+    "updatedAt": 1772492576619,
     "systemSent": true,
     "abortedLastRun": false,
     "chatType": "direct",
@@ -153,7 +153,7 @@
     "contextTokens": 200000,
     "systemPromptReport": {
       "source": "run",
-      "generatedAt": 1772492401615,
+      "generatedAt": 1772492576443,
       "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
       "sessionKey": "agent:main:main",
       "provider": "anthropic",
@@ -1888,7 +1888,7 @@
   },
   "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629": {
     "sessionId": "b5ebd922-9e1b-4181-a577-c90d2f52c02e",
-    "updatedAt": 1772490899966,
+    "updatedAt": 1772492575924,
     "systemSent": true,
     "label": "Cron: Reporte Trading 2h",
     "skillsSnapshot": {
@@ -1938,60 +1938,6 @@
     "inputTokens": 7,
     "outputTokens": 139,
     "totalTokens": 9381,
-    "totalTokensFresh": true
-  },
-  "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629:run:380d0b9b-6a26-4ea0-8a33-4a5f07565a34": {
-    "sessionId": "380d0b9b-6a26-4ea0-8a33-4a5f07565a34",
-    "updatedAt": 1772406175963,
-    "systemSent": true,
-    "label": "Cron: Reporte Trading 2h",
-    "skillsSnapshot": {
-      "prompt": "\n\nThe following skills provide specialized instructions for specific tasks.\nUse the read tool to load a skill's file when the task matches its description.\nWhen a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.\n\n<available_skills>\n  <skill>\n    <name>healthcheck</name>\n    <description>Host security hardening and risk-tolerance configuration for OpenClaw deployments. Use when a user asks for security audits, firewall/SSH/update hardening, risk posture, exposure review, OpenClaw cron scheduling for periodic checks, or version status checks on a machine running OpenClaw (laptop, workstation, Pi, VPS).</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>skill-creator</name>\n    <description>Create or update AgentSkills. Use when designing, structuring, or packaging skills with scripts, references, and assets.</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>weather</name>\n    <description>Get current weather and forecasts via wttr.in or Open-Meteo. Use when: user asks about weather, temperature, or forecasts for any location. NOT for: historical weather data, severe weather alerts, or detailed meteorological analysis. No API key needed.</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/weather/SKILL.md</location>\n  </skill>\n</available_skills>",
-      "skills": [
-        {
-          "name": "healthcheck"
-        },
-        {
-          "name": "skill-creator"
-        },
-        {
-          "name": "weather"
-        }
-      ],
-      "resolvedSkills": [
-        {
-          "name": "healthcheck",
-          "description": "Host security hardening and risk-tolerance configuration for OpenClaw deployments. Use when a user asks for security audits, firewall/SSH/update hardening, risk posture, exposure review, OpenClaw cron scheduling for periodic checks, or version status checks on a machine running OpenClaw (laptop, workstation, Pi, VPS).",
-          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck/SKILL.md",
-          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck",
-          "source": "openclaw-bundled",
-          "disableModelInvocation": false
-        },
-        {
-          "name": "skill-creator",
-          "description": "Create or update AgentSkills. Use when designing, structuring, or packaging skills with scripts, references, and assets.",
-          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator/SKILL.md",
-          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator",
-          "source": "openclaw-bundled",
-          "disableModelInvocation": false
-        },
-        {
-          "name": "weather",
-          "description": "Get current weather and forecasts via wttr.in or Open-Meteo. Use when: user asks about weather, temperature, or forecasts for any location. NOT for: historical weather data, severe weather alerts, or detailed meteorological analysis. No API key needed.",
-          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/weather/SKILL.md",
-          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/weather",
-          "source": "openclaw-bundled",
-          "disableModelInvocation": false
-        }
-      ],
-      "version": 0
-    },
-    "modelProvider": "anthropic",
-    "model": "claude-3-haiku-20240307",
-    "contextTokens": 16000,
-    "inputTokens": 7,
-    "outputTokens": 245,
-    "totalTokens": 9538,
     "totalTokensFresh": true
   },
   "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629:run:1b30d181-99e8-41bc-a901-1027ab68a184": {
@@ -2266,7 +2212,7 @@
   },
   "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629:run:b5ebd922-9e1b-4181-a577-c90d2f52c02e": {
     "sessionId": "b5ebd922-9e1b-4181-a577-c90d2f52c02e",
-    "updatedAt": 1772490899966,
+    "updatedAt": 1772492575924,
     "systemSent": true,
     "label": "Cron: Reporte Trading 2h",
     "skillsSnapshot": {
