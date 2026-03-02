@@ -873,7 +873,8 @@ class SyncEngine:
     def _load_cached_state(self):
         try:
             positions = get_positions()
-            self._previous_positions = {p.symbol: p.__dict__ for p in positions}
+            # FIXED: Use position_uuid as key instead of symbol to handle multiple positions per symbol
+            self._previous_positions = {p.position_uuid: p.__dict__ for p in positions if p.position_uuid}
             orders = get_orders(active_only=True)
             self._previous_orders = {o.order_id: o.__dict__ for o in orders}
         except Exception as e:
@@ -1014,9 +1015,11 @@ class SyncEngine:
         
         for event in events:
             try:
-                if event.get("symbol"):
-                    if self._is_scale_in_pending(event["symbol"]):
-                        logger.warning(f"Skipping projection for {event['symbol']}: scale_in_pending=1")
+                # FIXED: Use position_uuid instead of symbol to correctly identify position
+                # This ensures we check the correct position when multiple positions exist for same symbol
+                if event.get("position_uuid"):
+                    if self._is_scale_in_pending(event["position_uuid"]):
+                        logger.warning(f"Skipping projection for position {event['position_uuid']}: scale_in_pending=1")
                         continue
                 
                 if event["event_type"].startswith("POSITION"):
@@ -1035,10 +1038,23 @@ class SyncEngine:
         
         return successes, failures
     
-    def _is_scale_in_pending(self, symbol: str) -> bool:
+    def _is_scale_in_pending(self, position_uuid: str) -> bool:
+        """Check if a scale-in is pending for a specific position.
+        
+        Args:
+            position_uuid: The unique identifier of the position (NOT symbol).
+            
+        Returns:
+            True if scale_in_pending=1 for this specific position, False otherwise.
+            
+        Note: Uses position_uuid as the primary key to correctly identify the position,
+              since multiple positions can exist for the same symbol.
+        """
         with get_connection() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT scale_in_pending FROM positions WHERE symbol = ?", (symbol,))
+            # FIXED: Query by position_uuid (primary key) instead of symbol
+            # This ensures we check the correct position when multiple positions exist for same symbol
+            cur.execute("SELECT scale_in_pending FROM positions WHERE position_uuid = ?", (position_uuid,))
             row = cur.fetchone()
             return row and row[0] == 1
     
@@ -1118,31 +1134,39 @@ class ChangeDetector:
     """Detects changes between current and previous state to emit events."""
     
     def detect_position_changes(self, current: List[dict], previous: Dict[str, dict], correlation_id: str) -> List[dict]:
-        events = []
-        current_by_symbol = {p["symbol"]: p for p in current}
-        previous_by_symbol = previous.copy()
+        """Detect position changes and emit events.
         
-        for symbol, pos in current_by_symbol.items():
-            if symbol not in previous_by_symbol:
+        Events now include position_uuid to enable correct identification of positions
+        when multiple positions exist for the same symbol.
+        """
+        events = []
+        # FIXED: Use position_uuid as key instead of symbol to handle multiple positions per symbol
+        current_by_uuid = {p["position_uuid"]: p for p in current if "position_uuid" in p}
+        previous_by_uuid = {p.get("position_uuid", p.get("symbol", "")): p for p in previous.values()}
+        
+        for position_uuid, pos in current_by_uuid.items():
+            if position_uuid not in previous_by_uuid:
                 events.append({
                     "event_type": "POSITION_OPENED",
                     "event_source": "EXCHANGE",
                     "correlation_id": correlation_id,
-                    "symbol": symbol,
+                    "position_uuid": position_uuid,  # FIXED: Include position_uuid
+                    "symbol": pos.get("symbol", ""),
                     "payload_json": self._encode_payload(pos),
                     "position_amt": pos.get("position_amt", 0),
                     "entry_price": pos.get("entry_price", 0),
                     "side": pos.get("side", "")
                 })
             else:
-                prev = previous_by_symbol[symbol]
+                prev = previous_by_uuid[position_uuid]
                 if abs(pos.get("position_amt", 0) - prev.get("position_amt", 0)) > 0.0001:
                     if pos.get("position_amt", 0) > prev.get("position_amt", 0):
                         events.append({
                             "event_type": "POSITION_SCALED_IN",
                             "event_source": "EXCHANGE",
                             "correlation_id": correlation_id,
-                            "symbol": symbol,
+                            "position_uuid": position_uuid,  # FIXED: Include position_uuid
+                            "symbol": pos.get("symbol", ""),
                             "payload_json": self._encode_payload({
                                 "old_qty": prev.get("position_amt", 0),
                                 "new_qty": pos.get("position_amt", 0),
@@ -1155,20 +1179,22 @@ class ChangeDetector:
                             "event_type": "POSITION_SCALED_OUT",
                             "event_source": "EXCHANGE",
                             "correlation_id": correlation_id,
-                            "symbol": symbol,
+                            "position_uuid": position_uuid,  # FIXED: Include position_uuid
+                            "symbol": pos.get("symbol", ""),
                             "payload_json": self._encode_payload({
                                 "old_qty": prev.get("position_amt", 0),
                                 "new_qty": pos.get("position_amt", 0)
                             })
                         })
         
-        for symbol, prev in previous_by_symbol.items():
-            if symbol not in current_by_symbol:
+        for position_uuid, prev in previous_by_uuid.items():
+            if position_uuid not in current_by_uuid and position_uuid in previous_by_uuid:
                 events.append({
                     "event_type": "POSITION_CLOSED",
                     "event_source": "EXCHANGE",
                     "correlation_id": correlation_id,
-                    "symbol": symbol,
+                    "position_uuid": position_uuid,  # FIXED: Include position_uuid
+                    "symbol": prev.get("symbol", ""),
                     "payload_json": self._encode_payload({
                         "old_qty": prev.get("position_amt", 0),
                         "close_price": prev.get("mark_price", 0)
