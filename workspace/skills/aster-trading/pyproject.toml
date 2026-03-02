@@ -21,7 +21,8 @@ directory = "coverage_html"
 # Pylance will use these paths to resolve imports
 # This mirrors what conftest.py does at runtime
 reportMissingImports = true
+extraPaths = ["."]
 
 [tool.pyright]
 # Pyright/Pylance extra paths to resolve imports like "from api.aster_api import"
-extraPaths = ["src"]
+extraPaths = ["."]

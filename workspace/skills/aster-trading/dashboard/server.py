@@ -1180,8 +1180,6 @@ def get_exchange_positions():
     """Get live positions directly from exchange"""
     try:
         # Add src to path temporarily
-        import sys
-        from pathlib import Path
         if str(BASE_DIR / 'src') not in sys.path:
             sys.path.insert(0, str(BASE_DIR / 'src'))
         
@@ -1200,8 +1198,6 @@ def get_exchange_positions():
 def get_exchange_balance():
     """Get live account balance from exchange"""
     try:
-        import sys
-        from pathlib import Path
         if str(BASE_DIR / 'src') not in sys.path:
             sys.path.insert(0, str(BASE_DIR / 'src'))
         
