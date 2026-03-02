@@ -1,0 +1,5 @@
+2026-02-27 13:00:44,189 - aster_api - INFO - API_KEY loaded: True
+2026-02-27 13:00:44,189 - aster_api - INFO - ASTER_USER loaded: True
+2026-02-27 13:00:44,189 - aster_api - INFO - ASTER_SIGNER loaded: True
+2026-02-27 13:00:44,189 - aster_api - INFO - ASTER_PRIVATE_KEY loaded: True
+2026-02-27 13:00:44,621 - httpx - INFO - HTTP Request: GET https://fapi.asterdex.com/fapi/v1/balance?nonce=1772193644000000&recvWindow=5000&signature=b0c3d08bca7451ffd1ceb255749d3ae5625a437159b92c0448dc8a6af2bcbb60&signer=0x13A21676A51370C70a881580c71CdCeCa83D8fD4&timestamp=1772193644297&user=0xc82fe46d4da67179241cF9d54e18DA3747CE095e "HTTP/1.1 200 OK"

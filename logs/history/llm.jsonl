@@ -1,0 +1,100 @@
+{"type": "test", "model": "test-model", "ts": "2026-02-24T18:26:52.066566Z"}
+{"ts": "2026-02-24T18:30:26.638830Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T18:30:27.475357Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T18:30:27.475849Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T18:35:20.157745Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T18:35:20.946187Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T18:35:20.946710Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T18:46:44.953936Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T18:46:46.216290Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T18:46:46.216632Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T18:50:21.731617Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T18:50:23.598432Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\n  \"orders\": [\n    {\n      \"action\": \"HOLD\",\n      \"symbol\": \"ETHUSDT\",\n      \"side\": \"BUY\",\n      \"notional_usdt\": 5.5761,\n      \"reason\": \"Mantener la posición abierta en ETHUSDT\"\n    }\n  ]\n}"}
+{"ts": "2026-02-24T18:50:23.600248Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Mantener la posición abierta en ETHUSDT\"}]"}
+{"ts": "2026-02-24T18:56:22.888973Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T18:56:23.890683Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T18:56:23.890890Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:00:51.408959Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:00:52.136693Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:00:52.137078Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:05:29.515547Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:05:30.265829Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:05:30.266067Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:10:22.451201Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:10:23.241023Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:10:23.241589Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:16:50.763655Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:16:52.054690Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:16:52.055400Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:20:56.541906Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:20:57.517082Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Posición activa, sin señal de entrada/salida\"}]}"}
+{"ts": "2026-02-24T19:20:57.517402Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Posición activa, sin señal de entrada/salida\"}]"}
+{"ts": "2026-02-24T19:26:16.155111Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:26:16.845262Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:26:16.845784Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:35:51.745326Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:35:52.488512Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:35:52.488740Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:40:37.458245Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:40:38.467512Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Current position is within risk parameters and no new trade signals detected.\"}]}"}
+{"ts": "2026-02-24T19:40:38.468114Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Current position is within risk parameters and no new trade signals detected.\"}]"}
+{"ts": "2026-02-24T19:46:23.657901Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:46:24.993200Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:46:24.993492Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:50:52.565346Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:50:53.320330Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T19:50:53.320688Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T19:51:17.393581Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:51:18.515036Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.56140000, \"reason\": \"Current position maintained\"}]}"}
+{"ts": "2026-02-24T19:51:18.515687Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5614, \"reason\": \"Current position maintained\"}]"}
+{"ts": "2026-02-24T19:56:39.406355Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T19:56:40.425033Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.55450922, \"reason\": \"No señales de entrada, mantener posición actual.\"}]}"}
+{"ts": "2026-02-24T19:56:40.425320Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.55450922, \"reason\": \"No señales de entrada, mantener posición actual.\"}]"}
+{"ts": "2026-02-24T20:01:22.821729Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:01:23.792215Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:01:23.792466Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:06:13.989867Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:06:15.245302Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:06:15.245894Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:11:13.307899Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:11:14.640949Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.54703003, \"reason\": \"Maintain existing ETH position\"}]}"}
+{"ts": "2026-02-24T20:11:14.641316Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.54703003, \"reason\": \"Maintain existing ETH position\"}]"}
+{"ts": "2026-02-24T20:16:20.536958Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:16:21.613750Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5554, \"reason\": \"Maintain existing long position on ETHUSDT\"}]}"}
+{"ts": "2026-02-24T20:16:21.614116Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5554, \"reason\": \"Maintain existing long position on ETHUSDT\"}]"}
+{"ts": "2026-02-24T20:20:47.494813Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:20:48.188139Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:20:48.188390Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:25:45.972088Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:25:47.116110Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:25:47.116370Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:31:15.557387Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:31:16.872066Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Holding existing long position\"}]}"}
+{"ts": "2026-02-24T20:31:16.872783Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Holding existing long position\"}]"}
+{"ts": "2026-02-24T20:35:51.772958Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:35:53.095249Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:35:53.095692Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:41:05.221500Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:41:06.105702Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:41:06.106437Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T20:45:46.464126Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:45:47.591653Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Maintain current long position on ETHUSDT\"}]}"}
+{"ts": "2026-02-24T20:45:47.591906Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Maintain current long position on ETHUSDT\"}]"}
+{"ts": "2026-02-24T20:51:05.503989Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:51:07.206576Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": [{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Manteniendo la posición larga actual en ETHUSDT\"}]}"}
+{"ts": "2026-02-24T20:51:07.207007Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[{\"action\": \"HOLD\", \"symbol\": \"ETHUSDT\", \"side\": \"BUY\", \"notional_usdt\": 5.5761, \"reason\": \"Manteniendo la posición larga actual en ETHUSDT\"}]"}
+{"ts": "2026-02-24T20:55:44.789450Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T20:55:45.528694Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T20:55:45.529038Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T21:01:22.126286Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T21:01:22.948228Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T21:01:22.948630Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T21:06:12.306354Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T21:06:13.151098Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T21:06:13.151371Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T21:10:42.789941Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T21:10:43.530665Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T21:10:43.530947Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}
+{"ts": "2026-02-24T21:15:36.018044Z", "type": "llm_call", "script": "llm_policy_decider", "provider": "anthropic"}
+{"ts": "2026-02-24T21:15:36.915662Z", "type": "llm_content", "provider": "anthropic", "content_head": "{\"orders\": []}"}
+{"ts": "2026-02-24T21:15:36.916189Z", "type": "llm_decoded", "provider": "anthropic", "orders_head": "[]"}

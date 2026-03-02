@@ -1,0 +1,24 @@
+{
+  "SOLUSDT": {
+    "side": "BUY",
+    "entry_price": 85.28,
+    "size": 0.4,
+    "open_time": 1772355249196,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": false,
+    "scale_in_count": 0,
+    "pyramid_scales": 0
+  },
+  "ETHUSDT": {
+    "side": "SELL",
+    "entry_price": 2043.8,
+    "size": 0.008,
+    "open_time": 1772338611096,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": false,
+    "scale_in_count": 0,
+    "pyramid_scales": 0
+  }
+}

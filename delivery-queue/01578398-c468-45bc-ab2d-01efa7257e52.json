@@ -1,0 +1,17 @@
+{
+  "id": "01578398-c468-45bc-ab2d-01efa7257e52",
+  "enqueuedAt": 1771870558246,
+  "channel": "telegram",
+  "to": "tg:152838976",
+  "payloads": [
+    {
+      "text": "Connection error.",
+      "mediaUrls": []
+    }
+  ],
+  "threadId": null,
+  "replyToId": null,
+  "bestEffort": false,
+  "retryCount": 1,
+  "lastError": "Network request for 'sendMessage' failed!"
+}

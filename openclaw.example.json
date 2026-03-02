@@ -1,0 +1,191 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.15",
+    "lastTouchedAt": "2026-02-18T10:35:00.000Z"
+  },
+
+  "wizard": {
+    "lastRunAt": "2026-02-16T19:23:34.927Z",
+    "lastRunVersion": "2026.2.15",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "anthropic": {
+        "api": "anthropic-messages",
+        "baseUrl": "https://api.anthropic.com",
+        "apiKey": "${ANTHROPIC_API_KEY}",
+        "models": [
+          {
+            "id": "claude-3-haiku-20240307",
+            "name": "Claude 3 Haiku",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          }
+        ]
+      },
+      "minimax": {
+        "api": "anthropic-messages",
+        "baseUrl": "https://api.minimax.io/anthropic",
+        "apiKey": "${MINIMAX_API_KEY}",
+        "models": [
+          {
+            "id": "MiniMax-M2.1",
+            "name": "MiniMax M2.1",
+            "reasoning": false,
+            "input": ["text"],
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+
+  "agents": {
+    "defaults": {
+      "workspace": "/Users/FIRMAS/.openclaw/workspace",
+
+      "model": {
+        "primary": "anthropic/claude-3-haiku-20240307"
+      },
+
+      "contextTokens": 16000,
+
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "ttl": "1m"
+      },
+
+      "compaction": {
+        "mode": "safeguard"
+      },
+
+      "bootstrapMaxChars": 4000,
+      "timeoutSeconds": 180,
+      "maxConcurrent": 1,
+
+      "userTimezone": "Europe/Madrid",
+      "timeFormat": "24",
+      "envelopeTimezone": "user",
+
+      "heartbeat": {
+        "every": "0s",
+        "model": "anthropic/claude-3-haiku-20240307",
+        "target": "last",
+        "prompt": "Lee HEARTBEAT.md del workspace. Para el skill aster-trading V2: 1) Verifica estado en logs/v2_state.json, 2) Si no está corriendo, inícialo con control.sh start, 3) Reporta en 6 líneas máximo.",
+        "ackMaxChars": 400
+      },
+
+      "memorySearch": {
+        "enabled": false
+      }
+    },
+
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "Personal Assistant",
+        "workspace": "/Users/FIRMAS/.openclaw/workspace"
+      },
+      {
+        "id": "aster-trading",
+        "name": "Aster Trading Bot",
+        "workspace": "/Users/FIRMAS/.openclaw/workspace",
+        "sandbox": {
+          "mode": "off"
+        },
+        "tools": {
+          "allow": ["read", "write", "edit", "exec", "process"],
+          "deny": []
+        }
+      }
+    ]
+  },
+
+  "session": {
+    "scope": "per-sender",
+    "reset": {
+      "mode": "idle",
+      "idleMinutes": 5
+    },
+    "dmScope": "per-channel-peer"
+  },
+
+  "messages": {
+    "queue": {
+      "mode": "collect",
+      "debounceMs": 1000,
+      "cap": 5,
+      "drop": "summarize",
+      "byChannel": {
+        "telegram": "collect"
+      }
+    }
+  },
+
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto"
+  },
+
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "${TELEGRAM_BOT_TOKEN}",
+      "dmPolicy": "allowlist",
+      "allowFrom": ["${TELEGRAM_ALLOWED_USER_ID}"],
+      "groupPolicy": "disabled",
+      "streamMode": "partial",
+      "heartbeat": {
+        "showOk": true,
+        "showAlerts": true,
+        "useIndicator": true
+      }
+    }
+  },
+
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "${GATEWAY_AUTH_TOKEN}"
+    }
+  },
+
+  "cron": {
+    "enabled": true
+  },
+
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "/Users/FIRMAS/.openclaw/skills"
+      ],
+      "watch": true
+    },
+    "entries": {
+      "aster-trading": {
+        "enabled": true,
+        "env": {
+          "ASTER_API_KEY": "${ASTER_API_KEY}",
+          "ASTER_API_SECRET": "${ASTER_API_SECRET}"
+        }
+      }
+    }
+  },
+
+  "plugins": {
+    "entries": {
+      "telegram": {
+        "enabled": true
+      }
+    }
+  }
+}

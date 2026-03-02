@@ -1,0 +1,63 @@
+{
+  "session_start": "2026-03-01T21:55:49.110596",
+  "session_end": "2026-03-01T21:57:06.345557",
+  "duration_seconds": 77.23495101928711,
+  "initialization": {
+    "success": true,
+    "duration_seconds": 9.48331093788147,
+    "errors": []
+  },
+  "signal_generation": {
+    "total_signals": 2,
+    "by_symbol": {
+      "HYPEUSDT": 2
+    },
+    "by_action": {
+      "BUY": 2
+    },
+    "avg_interval_seconds": 63.47528696060181,
+    "signal_times": [
+      1772398561.13246,
+      1772398624.607747
+    ]
+  },
+  "trading_execution": {
+    "orders_placed": 0,
+    "orders_filled": 0,
+    "orders_rejected": 0,
+    "orders_cancelled": 0,
+    "errors": []
+  },
+  "order_lifecycle": {
+    "submission_times": [],
+    "fill_times": [],
+    "rejection_times": [],
+    "cancellation_times": []
+  },
+  "error_handling": {
+    "total_errors": 2,
+    "errors_by_type": {
+      "Unknown": 2
+    },
+    "retries_attempted": 0
+  },
+  "latency": {
+    "signal_generation_ms": [
+      1861.5241050720215,
+      522.132158279419
+    ],
+    "order_submission_ms": [],
+    "api_response_ms": []
+  },
+  "component_status": {
+    "websocket": "initialized",
+    "feature_calculator": "initialized",
+    "signal_generator": "initialized",
+    "llm_guardian": "initialized",
+    "risk_guard": "initialized",
+    "risk_adjuster": "initialized",
+    "centralized_logger": "initialized"
+  },
+  "production_ready": true,
+  "critical_errors": []
+}

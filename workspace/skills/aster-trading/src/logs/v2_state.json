@@ -1,0 +1,18 @@
+{
+  "running": true,
+  "start_time": 1771983803675,
+  "loop_count": 35,
+  "last_feature_update": 1771985857804,
+  "last_llm_review": 0,
+  "trades_executed": 0,
+  "symbols": [
+    "ASTERUSDT",
+    "ETHUSDT"
+  ],
+  "intervals": [
+    "1m",
+    "5m",
+    "15m"
+  ],
+  "timestamp": 1771985857804
+}
