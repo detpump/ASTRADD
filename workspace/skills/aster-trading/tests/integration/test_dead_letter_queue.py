@@ -61,7 +61,7 @@ class TestDeadLetterQueue:
     # Process Pending Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_process_pending_no_errors(self, mock_conn, retry_worker):
         """Test processing when no pending errors exist."""
         mock_cur = MagicMock()
@@ -75,7 +75,7 @@ class TestDeadLetterQueue:
         
         assert result == 0
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_process_pending_with_errors(self, mock_conn, retry_worker, mock_event_processing_error):
         """Test processing pending errors."""
         # Setup mocks
@@ -115,7 +115,7 @@ class TestDeadLetterQueue:
     # Error Stats Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_get_error_stats(self, mock_conn, retry_worker):
         """Test getting error statistics."""
         mock_cur = MagicMock()
@@ -135,7 +135,7 @@ class TestDeadLetterQueue:
         assert stats["RESOLVED"] == 10
         assert stats["FAILED"] == 2
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_get_error_stats_empty(self, mock_conn, retry_worker):
         """Test getting error statistics when table is empty."""
         mock_cur = MagicMock()
@@ -155,7 +155,7 @@ class TestDeadLetterQueue:
     # Clear Resolved Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_clear_resolved(self, mock_conn, retry_worker):
         """Test clearing resolved errors."""
         mock_cur = MagicMock()
@@ -169,7 +169,7 @@ class TestDeadLetterQueue:
         
         assert deleted == 5
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_clear_resolved_none_to_clear(self, mock_conn, retry_worker):
         """Test clearing when no resolved errors exist."""
         mock_cur = MagicMock()
@@ -187,7 +187,7 @@ class TestDeadLetterQueue:
     # Mark Resolved Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_mark_resolved(self, mock_conn, retry_worker):
         """Test marking an error as resolved."""
         mock_cur = MagicMock()
@@ -206,7 +206,7 @@ class TestDeadLetterQueue:
     # Increment Retry Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_increment_retry(self, mock_conn, retry_worker):
         """Test incrementing retry count."""
         mock_cur = MagicMock()
@@ -221,7 +221,7 @@ class TestDeadLetterQueue:
         mock_cur.execute.assert_called()
         mock_conn.return_value.commit.assert_called()
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_increment_retry_marks_failed_at_max(self, mock_conn, retry_worker):
         """Test that incrementing retry marks as FAILED when max reached."""
         mock_cur = MagicMock()
@@ -287,7 +287,7 @@ class TestDeadLetterQueue:
     # Integration with Event Processing Errors Table
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_retry_respects_max_retries(self, mock_conn, retry_worker):
         """Test that retry respects max_retries limit."""
         mock_cur = MagicMock()
@@ -305,7 +305,7 @@ class TestDeadLetterQueue:
         # Should not process since max retries reached
         assert result == 0
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_retry_only_pending_status(self, mock_conn, retry_worker):
         """Test that only PENDING status errors are processed."""
         mock_cur = MagicMock()
@@ -328,7 +328,7 @@ class TestDeadLetterQueue:
     # Error Handling Tests
     # =========================================================================
     
-    @patch('src.sync.retry_worker.get_connection')
+    @patch('state.db.get_connection')
     def test_process_handles_event_not_found(self, mock_conn, retry_worker):
         """Test handling when event is not found."""
         mock_cur = MagicMock()
@@ -416,7 +416,7 @@ class TestDeadLetterQueueIntegration:
         worker = RetryWorker()
         
         # Stats should always return these keys
-        with patch('src.sync.retry_worker.get_connection') as mock_conn:
+        with patch('state.db.get_connection') as mock_conn:
             mock_cur = MagicMock()
             mock_cur.fetchall.return_value = []
             mock_conn.return_value.__enter__ = MagicMock(return_value=mock_conn.return_value)

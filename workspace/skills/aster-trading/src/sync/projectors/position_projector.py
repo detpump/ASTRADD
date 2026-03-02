@@ -130,10 +130,10 @@ class PositionProjector:
             # Record position entry
             cur.execute(
                 """INSERT INTO position_entries 
-                   (position_uuid, entry_price, quantity_added, cumulative_quantity, 
+                   (position_uuid, entry_price, quantity, 
                     entry_type, correlation_id, created_at)
-                   VALUES (?, ?, ?, ?, 'SCALE_IN', ?, ?)""",
-                (position_uuid, new_entry, scale_qty, new_qty,
+                   VALUES (?, ?, ?, 'SCALE_IN', ?, ?)""",
+                (position_uuid, new_entry, scale_qty,
                  event.get("correlation_id", ""), int(time.time() * 1000))
             )
             
@@ -258,12 +258,12 @@ class PositionProjector:
         # Record initial position entry
         cur.execute(
             """INSERT INTO position_entries 
-               (position_uuid, entry_price, quantity_added, cumulative_quantity, 
+               (position_uuid, entry_price, quantity, timestamp,
                 entry_type, correlation_id, created_at)
-               VALUES (?, ?, ?, ?, 'OPEN', ?, ?)""",
+               VALUES (?, ?, ?, ?, 'INITIAL', ?, ?)""",
             (position_uuid, payload.get("entry_price", 0),
              payload.get("position_amt", payload.get("quantity", 0)),
-             payload.get("position_amt", payload.get("quantity", 0)),
+             current_time,
              correlation_id, current_time)
         )
     

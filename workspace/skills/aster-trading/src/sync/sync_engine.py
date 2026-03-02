@@ -87,11 +87,13 @@ class SyncEngine:
         """Execute a full sync cycle."""
         batch_id = str(uuid.uuid4())
         started_at = int(time.time() * 1000)
+        completed_at = int(time.time() * 1000)
         
         result = SyncResult(
             batch_id=batch_id,
             status='FAILED',
-            started_at=started_at
+            started_at=started_at,
+            completed_at=completed_at
         )
         
         try:
