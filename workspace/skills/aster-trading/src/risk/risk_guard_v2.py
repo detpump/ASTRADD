@@ -177,10 +177,36 @@ class RiskGuard:
         logger.warning(f"State file not found at any known location, using: {state_file}")
         return state_file
     
+    def _build_initial_state_data(self) -> dict:
+        """Build the initial state payload when the DB has no risk snapshot."""
+        equity_value = 0.0
+        try:
+            from api.aster_api import get_equity_total_usdt
+
+            equity_value = get_equity_total_usdt()
+        except Exception as exc:  # pragma: no cover (depends on live API)
+            logger.warning("Could not fetch equity for initial risk state: %s", exc)
+
+        return {
+            "equity": equity_value,
+            "equity_peak": equity_value,
+            "equity_start_day": equity_value,
+            "equity_start_week": equity_value,
+            "daily_pnl": 0.0,
+            "drawdown_pct": 0.0,
+            "positions": {},
+            "open_positions_count": 0,
+            "trades_today": 0,
+            "consecutive_losses": 0,
+            "last_trade_time": 0,
+            "date": datetime.now().date().isoformat(),
+        }
+
     def _load_state(self) -> PortfolioState:
         """Carga el estado del portafolio desde DB (RiskState)."""
         # Compatibility mode for tests/tools: if an explicit legacy state file was
         # provided and exists, prefer it over DB snapshot.
+        created_snapshot = False
         if self.state_file and os.path.exists(self.state_file):
             with open(self.state_file, "r") as f:
                 data = json.load(f)
@@ -209,9 +235,11 @@ class RiskGuard:
                     "date": limits.get("date"),
                 }
             else:
-                error_msg = "CRITICAL: No risk state found (DB). Trading halted until equity is initialized."
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                logger.warning(
+                    "No risk state found in DB, building initial state from API data"
+                )
+                data = self._build_initial_state_data()
+                created_snapshot = True
 
         state = PortfolioState()
 
@@ -235,9 +263,15 @@ class RiskGuard:
         state.date = data.get("date", datetime.now().date().isoformat())
 
         if state.drawdown_pct > 0.5:
-            logger.warning(f"Detected high drawdown ({state.drawdown_pct*100:.1f}%), resetting for fresh start")
+            logger.warning(
+                f"Detected high drawdown ({state.drawdown_pct*100:.1f}%), resetting for fresh start"
+            )
             state.equity_peak = state.equity
             state.drawdown_pct = 0.0
+
+        self.state = state
+        if created_snapshot:
+            self._save_state()
 
         return state
     
