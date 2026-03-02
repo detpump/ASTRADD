@@ -263,14 +263,23 @@ class RetentionManager:
         with get_connection() as conn:
             cur = conn.cursor()
             
-            # Analyze tables for query optimization
-            for table in [
+            # Analyze tables for query optimization (V3 schema tables)
+            tables = [
                 "raw_position_snapshots",
                 "raw_order_snapshots",
+                "raw_account_snapshots",
                 "events",
-                "positions",
-                "orders"
-            ]:
+                "positions_v3",
+                "position_entries",
+                "position_closes",
+                "bracket_orders",
+                "risk_states",
+                "risk_events",
+                "sync_metrics",
+                "sync_batches"
+            ]
+            
+            for table in tables:
                 try:
                     cur.execute(f"ANALYZE {table}")
                 except Exception as e:

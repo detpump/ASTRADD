@@ -461,7 +461,7 @@ class SyncEngine:
         upsert_risk_state(risk_state)
     
     def _complete_batch(self, batch_id: str, result: SyncResult):
-        """Mark batch as completed."""
+        """Mark batch as completed and record metrics."""
         with get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
@@ -469,24 +469,60 @@ class SyncEngine:
                    SET status = ?, completed_at = ?, 
                        positions_fetched = ?, orders_fetched = ?,
                        events_emitted = ?, projections_succeeded = ?, projections_failed = ?
-                   WHERE batch_id = ?""",
+                    WHERE batch_id = ?""",
                 (result.status, result.completed_at, result.positions_fetched,
                  result.orders_fetched, result.events_emitted, result.projections_succeeded,
                  result.projections_failed, batch_id)
             )
+            
+            # Record sync metrics
+            duration_ms = result.completed_at - result.started_at if result.completed_at and result.started_at else 0
+            cur.execute(
+                """INSERT INTO sync_metrics (
+                    batch_id, started_at, completed_at, duration_ms,
+                    positions_fetched, orders_fetched, events_emitted,
+                    projections_succeeded, projections_failed, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (batch_id, result.started_at, result.completed_at, duration_ms,
+                 result.positions_fetched, result.orders_fetched, result.events_emitted,
+                 result.projections_succeeded, result.projections_failed, result.status)
+            )
+            
             conn.commit()
         logger.debug(f"Completed sync batch {batch_id}: {result.status}")
     
     def _fail_batch(self, batch_id: str, error: str):
-        """Mark batch as failed."""
+        """Mark batch as failed and record metrics."""
+        completed_at = int(time.time() * 1000)
+        
         with get_connection() as conn:
             cur = conn.cursor()
             cur.execute(
                 """UPDATE sync_batches 
                    SET status = 'FAILED', completed_at = ?, error_message = ?
-                   WHERE batch_id = ?""",
-                (int(time.time() * 1000), error, batch_id)
+                    WHERE batch_id = ?""",
+                (completed_at, error, batch_id)
             )
+            
+            # Record sync metrics for failed batch
+            # We need to get the started_at from the batch
+            cur.execute(
+                "SELECT started_at FROM sync_batches WHERE batch_id = ?",
+                (batch_id,)
+            )
+            row = cur.fetchone()
+            started_at = row[0] if row else completed_at
+            duration_ms = completed_at - started_at if started_at else 0
+            
+            cur.execute(
+                """INSERT INTO sync_metrics (
+                    batch_id, started_at, completed_at, duration_ms,
+                    positions_fetched, orders_fetched, events_emitted,
+                    projections_succeeded, projections_failed, status, error_message
+                ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 'FAILED', ?)""",
+                (batch_id, started_at, completed_at, duration_ms, error)
+            )
+            
             conn.commit()
         logger.error(f"Failed sync batch {batch_id}: {error}")
 
