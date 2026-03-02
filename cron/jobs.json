@@ -39,7 +39,7 @@
       "name": "HB Trading 30m",
       "enabled": true,
       "createdAtMs": 1771706400000,
-      "updatedAtMs": 1772490903311,
+      "updatedAtMs": 1772492400363,
       "schedule": {
         "kind": "cron",
         "expr": "*/30 * * * *",
@@ -57,11 +57,11 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772492400000,
-        "lastRunAtMs": 1772490903119,
+        "nextRunAtMs": 1772494200000,
+        "lastRunAtMs": 1772492400002,
         "lastStatus": "error",
-        "lastDurationMs": 192,
-        "consecutiveErrors": 2,
+        "lastDurationMs": 361,
+        "consecutiveErrors": 3,
         "lastError": "Unsupported channel: telegram"
       }
     },
@@ -71,7 +71,7 @@
       "name": "Events: Signals, Positions, Market 2h",
       "enabled": true,
       "createdAtMs": 1772053800000,
-      "updatedAtMs": 1772490900764,
+      "updatedAtMs": 1772492401337,
       "schedule": {
         "kind": "cron",
         "expr": "0 */2 * * *",
@@ -89,11 +89,11 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772492400000,
-        "lastRunAtMs": 1772490900493,
+        "nextRunAtMs": 1772499600000,
+        "lastRunAtMs": 1772492400363,
         "lastStatus": "error",
-        "lastDurationMs": 271,
-        "consecutiveErrors": 1,
+        "lastDurationMs": 974,
+        "consecutiveErrors": 2,
         "lastError": "Unsupported channel: telegram"
       }
     }

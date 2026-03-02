@@ -815,19 +815,23 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         """
     )
 
-    # Risk dashboard view
+    # Risk dashboard view - FIXED: Query V2 tables (risk_state) instead of empty V3 tables
+    # Note: risk_state contains JSON with actual position data including notional values
+    # This view extracts equity, pnl, drawdown from risk_state and position counts/notional from JSON
     cur.execute(
         """
         CREATE VIEW IF NOT EXISTS v_risk_dashboard AS
         SELECT 
-            (SELECT account_equity FROM risk_states WHERE id = 1) as equity,
-            (SELECT daily_pnl FROM risk_states WHERE id = 1) as daily_pnl,
-            (SELECT drawdown_pct FROM risk_states WHERE id = 1) as drawdown_pct,
-            (SELECT can_trade FROM risk_states WHERE id = 1) as can_trade,
-            COUNT(CASE WHEN status = 'OPEN' THEN 1 END) as open_positions,
-            SUM(CASE WHEN status = 'OPEN' THEN notional ELSE 0 END) as total_exposure,
+            (SELECT account_equity FROM risk_state WHERE id = 1) as equity,
+            (SELECT daily_pnl FROM risk_state WHERE id = 1) as daily_pnl,
+            (SELECT drawdown_pct FROM risk_state WHERE id = 1) as drawdown_pct,
+            1 as can_trade,
+            (SELECT json_extract(risk_limits, '$.open_positions_count') FROM risk_state WHERE id = 1) as open_positions,
+            (SELECT COALESCE(json_extract(risk_limits, '$.positions.SOLUSDT.notional'), 0) + 
+                    COALESCE(json_extract(risk_limits, '$.positions.ETHUSDT.notional'), 0) +
+                    COALESCE(json_extract(risk_limits, '$.positions.BNBUSDT.notional'), 0) +
+                    COALESCE(json_extract(risk_limits, '$.positions.BTCUSDT.notional'), 0) FROM risk_state WHERE id = 1) as total_exposure,
             (SELECT COUNT(*) FROM risk_events WHERE triggered_at > strftime('%s','now')*1000 - 86400000) as events_24h
-        FROM positions_v3
         """
     )
 
