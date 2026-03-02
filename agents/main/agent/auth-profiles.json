@@ -12,9 +12,9 @@
   },
   "usageStats": {
     "anthropic:default": {
-      "lastUsed": 1772493647043,
+      "lastUsed": 1772493956691,
       "errorCount": 0,
-      "lastFailureAt": 1772493647041
+      "lastFailureAt": 1772493956690
     }
   }
 }

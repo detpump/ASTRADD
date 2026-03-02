@@ -53,6 +53,13 @@ def _build_system_cadence(system_cfg, cron_jobs):
 def _load_trade_state_positions():
     """Load position state tracked by trade_state.py (if available)."""
     try:
+        import sys
+        project_root = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading'
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        src_dir = project_root + '/src'
+        if src_dir not in sys.path:
+            sys.path.insert(0, src_dir)
         from trade_state import get_all_positions
         raw = get_all_positions()
         if not isinstance(raw, dict):
