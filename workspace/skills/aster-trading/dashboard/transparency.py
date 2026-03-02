@@ -52,6 +52,7 @@ def _build_system_cadence(system_cfg, cron_jobs):
 
 def _load_trade_state_positions():
     """Load position state from V3 positions_v3 table."""
+    debug_log = '/Users/FIRMAS/.openclaw/logs/risk_load_debug.log'
     try:
         import sys
         project_root = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading'
@@ -73,6 +74,9 @@ def _load_trade_state_positions():
         rows = cursor.fetchall()
         conn.close()
         
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] _load_trade_state_positions: found {len(rows)} rows\n")
+        
         normalized = {}
         for row in rows:
             sym = row['symbol'].upper()
@@ -89,8 +93,14 @@ def _load_trade_state_positions():
                 'sl_hit': False,
                 'raw': dict(row),
             }
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] _load_trade_state_positions: returning {len(normalized)} positions\n")
         return normalized
-    except Exception:
+    except Exception as e:
+        import traceback
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] _load_trade_state_positions error: {e}\n")
+            f.write(traceback.format_exc())
         return {}
 
 
