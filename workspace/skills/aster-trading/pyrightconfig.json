@@ -1,0 +1,28 @@
+{
+  "include": ["src", "tests", "dashboard"],
+  "exclude": ["**/__pycache__", "**/.*", "**/node_modules", ".venv", ".venv311"],
+  
+  // Python interpreter to use for type checking
+  "pythonPath": ".venv/bin/python",
+  
+  // Extra paths for Pylance to find modules like state, services, etc.
+  // This tells Pylance to look in the src/ directory for imports like:
+  // - state.repositories
+  // - services.risk_service
+  // - state.dashboard_cache
+  // - state.models
+  // And any other modules under src/
+  "extraPaths": ["src", "."],
+  
+  // Type checking options
+  "typeCheckingMode": "basic",
+  
+  // Report missing imports
+  "reportMissingImports": true,
+  
+  // Python version
+  "pythonVersion": "3.11",
+  
+  // Venv path (relative to this config file)
+  "venvPath": "."
+}

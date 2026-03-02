@@ -17,7 +17,7 @@
       "enabled": true,
       "max_leverage": 3,
       "min_notional_usdt": 8.0,
-      "max_notional_usdt": 4.595179164631473e+19,
+      "max_notional_usdt": 5.973732914020916e+19,
       "target_risk_pct_per_trade": 2.0,
       "trailing_callback_rate_pct": 0.8,
       "sl_pct": 1.5,
@@ -34,7 +34,7 @@
       "enabled": true,
       "max_leverage": 3,
       "min_notional_usdt": 8.0,
-      "max_notional_usdt": 4.595179164631473e+19,
+      "max_notional_usdt": 5.973732914020916e+19,
       "target_risk_pct_per_trade": 2.0,
       "trailing_callback_rate_pct": 1.0,
       "sl_pct": 1.5,
@@ -51,7 +51,7 @@
       "enabled": true,
       "max_leverage": 3,
       "min_notional_usdt": 8.0,
-      "max_notional_usdt": 4.595179164631473e+19,
+      "max_notional_usdt": 5.973732914020916e+19,
       "target_risk_pct_per_trade": 2.0,
       "trailing_callback_rate_pct": 0.8,
       "sl_pct": 1.5,
@@ -68,7 +68,7 @@
       "enabled": true,
       "max_leverage": 3,
       "min_notional_usdt": 8.0,
-      "max_notional_usdt": 4.595179164631473e+19,
+      "max_notional_usdt": 5.973732914020916e+19,
       "target_risk_pct_per_trade": 2.0,
       "trailing_callback_rate_pct": 0.9,
       "sl_pct": 1.5,
@@ -85,7 +85,7 @@
       "enabled": true,
       "max_leverage": 3,
       "min_notional_usdt": 8.0,
-      "max_notional_usdt": 4.595179164631473e+19,
+      "max_notional_usdt": 5.973732914020916e+19,
       "target_risk_pct_per_trade": 2.0,
       "trailing_callback_rate_pct": 1.2,
       "sl_pct": 2.0,
@@ -102,6 +102,6 @@
   "mode": {
     "risk_profile": "aggressive",
     "reason": "auto-adjustment based on market volatility",
-    "last_update": "2026-03-02T20:05:03.267214+00:00"
+    "last_update": "2026-03-02T20:10:02.784588+00:00"
   }
 }
