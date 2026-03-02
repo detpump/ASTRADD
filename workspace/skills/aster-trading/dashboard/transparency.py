@@ -393,7 +393,13 @@ def _load_risk_from_db():
             result = {
                 'equity': row['account_equity'],
                 'daily_pnl': row['daily_pnl'],
+                'daily_pnl_pct': row['daily_pnl_pct'],
                 'drawdown_pct': row['drawdown_pct'],
+                'max_drawdown_pct': row['max_drawdown_pct'],
+                'open_positions_count': row['open_positions_count'],
+                'total_exposure': row['total_exposure'],
+                'can_trade': row['can_trade'],
+                'circuit_breaker_triggered': row['circuit_breaker_triggered'],
                 'risk_limits': {}
             }
             with open(debug_log, 'a') as f:

@@ -28,6 +28,7 @@ from .models import (
 def upsert_position(p: Position) -> None:
     with get_connection() as conn:
         cur = conn.cursor()
+        # V2 write
         cur.execute(
             """
             INSERT INTO positions (
@@ -59,6 +60,41 @@ def upsert_position(p: Position) -> None:
                 p.open_time,
                 p.cycle_id,
                 json.dumps(p.metadata) if p.metadata else None,
+            ),
+        )
+        
+        # V3 write - dual write to positions_v3 table
+        # Generate position_uuid from symbol if not available
+        position_uuid = f"{p.symbol.lower()}-{p.open_time}"
+        cur.execute(
+            """
+            INSERT INTO positions_v3 (
+                position_uuid, symbol, side, quantity, entry_price, current_price, 
+                unrealized_pnl, notional, leverage, open_time, status, updated_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', (strftime('%s','now') * 1000), (strftime('%s','now') * 1000))
+            ON CONFLICT(position_uuid) DO UPDATE SET
+                symbol=excluded.symbol,
+                side=excluded.side,
+                quantity=excluded.quantity,
+                entry_price=excluded.entry_price,
+                current_price=excluded.current_price,
+                unrealized_pnl=excluded.unrealized_pnl,
+                notional=excluded.notional,
+                leverage=excluded.leverage,
+                status='OPEN',
+                updated_at=(strftime('%s','now') * 1000)
+            """,
+            (
+                position_uuid,
+                p.symbol,
+                p.side.upper() if p.side else 'LONG',
+                p.quantity,
+                p.entry_price,
+                p.mark_price,
+                p.unrealized_pnl,
+                p.notional,
+                p.leverage,
+                p.open_time,
             ),
         )
         conn.commit()
@@ -194,6 +230,7 @@ def get_orders(active_only: bool = True, limit: int = 200) -> List[Order]:
 def upsert_risk_state(r: RiskState) -> None:
     with get_connection() as conn:
         cur = conn.cursor()
+        # V2 write
         cur.execute(
             """
             INSERT INTO risk_state (id, account_equity, daily_pnl, drawdown_pct, risk_limits)
@@ -209,6 +246,38 @@ def upsert_risk_state(r: RiskState) -> None:
                 r.account_equity,
                 r.daily_pnl,
                 r.drawdown_pct,
+                json.dumps(r.risk_limits) if r.risk_limits else None,
+            ),
+        )
+        
+        # V3 write - dual write to risk_states table
+        cur.execute(
+            """
+            INSERT INTO risk_states (id, account_equity, daily_pnl, daily_pnl_pct, drawdown_pct, max_drawdown_pct, open_positions_count, total_exposure, can_trade, circuit_breaker_triggered, risk_limits_json, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (strftime('%s','now') * 1000))
+            ON CONFLICT(id) DO UPDATE SET
+                account_equity=excluded.account_equity,
+                daily_pnl=excluded.daily_pnl,
+                daily_pnl_pct=excluded.daily_pnl_pct,
+                drawdown_pct=excluded.drawdown_pct,
+                max_drawdown_pct=excluded.max_drawdown_pct,
+                open_positions_count=excluded.open_positions_count,
+                total_exposure=excluded.total_exposure,
+                can_trade=excluded.can_trade,
+                circuit_breaker_triggered=excluded.circuit_breaker_triggered,
+                risk_limits_json=excluded.risk_limits_json,
+                updated_at=excluded.updated_at
+            """,
+            (
+                r.account_equity,
+                r.daily_pnl,
+                (r.daily_pnl / r.account_equity) if r.account_equity else 0,  # daily_pnl_pct
+                r.drawdown_pct,
+                r.drawdown_pct,  # max_drawdown_pct - using same for now
+                getattr(r, 'open_positions_count', 0),
+                getattr(r, 'total_exposure', 0),
+                1,  # can_trade
+                0,  # circuit_breaker_triggered
                 json.dumps(r.risk_limits) if r.risk_limits else None,
             ),
         )
