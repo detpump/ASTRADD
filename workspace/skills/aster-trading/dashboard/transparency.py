@@ -51,7 +51,7 @@ def _build_system_cadence(system_cfg, cron_jobs):
 
 
 def _load_trade_state_positions():
-    """Load position state tracked by trade_state.py (if available)."""
+    """Load position state from V3 positions_v3 table."""
     try:
         import sys
         project_root = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading'
@@ -60,27 +60,34 @@ def _load_trade_state_positions():
         src_dir = project_root + '/src'
         if src_dir not in sys.path:
             sys.path.insert(0, src_dir)
-        from trade_state import get_all_positions
-        raw = get_all_positions()
-        if not isinstance(raw, dict):
-            return {}
+        
+        # Read from V3 positions_v3 table
+        import sqlite3
+        db_path = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading/logs/aster.db'
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Read from V3 positions_v3 table
+        cursor.execute("SELECT * FROM positions_v3 WHERE status = 'OPEN'")
+        rows = cursor.fetchall()
+        conn.close()
+        
         normalized = {}
-        for symbol, pos in raw.items():
-            if not isinstance(pos, dict):
-                continue
-            sym = str(symbol).upper()
+        for row in rows:
+            sym = row['symbol'].upper()
             normalized[sym] = {
                 'symbol': sym,
-                'side': str(pos.get('side', '')).upper(),
-                'size': _safe_float(pos.get('size', 0)),
-                'entry_price': _safe_float(pos.get('entry_price', 0)),
-                'avg_entry_price': _safe_float(pos.get('avg_entry_price', pos.get('entry_price', 0))),
-                'last_update_ms': _safe_int(pos.get('last_update_ms', pos.get('updated_at', 0)), 0),
-                'scale_count': _safe_int(pos.get('scale_count', 0), 0),
-                'tp1_hit': bool(pos.get('tp1_hit', False)),
-                'tp2_hit': bool(pos.get('tp2_hit', False)),
-                'sl_hit': bool(pos.get('sl_hit', False)),
-                'raw': pos,
+                'side': row['side'],
+                'size': row['quantity'],
+                'entry_price': row['entry_price'],
+                'avg_entry_price': row['entry_price'],
+                'last_update_ms': row['updated_at'],
+                'scale_count': row['pyramid_scales'],
+                'tp1_hit': bool(row['tp1_hit']),
+                'tp2_hit': bool(row['tp2_hit']),
+                'sl_hit': False,
+                'raw': dict(row),
             }
         return normalized
     except Exception:
@@ -351,7 +358,7 @@ def _build_execution_latency_snapshot(symbols=None, signal_limit=1200, trade_lim
 
 
 def _load_risk_from_db():
-    """Load risk data from database"""
+    """Load risk data from V3 database tables"""
     debug_log = '/Users/FIRMAS/.openclaw/logs/risk_load_debug.log'
     try:
         import sys
@@ -365,27 +372,36 @@ def _load_risk_from_db():
             sys.path.insert(0, src_dir)
         
         with open(debug_log, 'a') as f:
-            f.write(f"[{datetime.now().isoformat()}] _load_risk_from_db called\n")
+            f.write(f"[{datetime.now().isoformat()}] _load_risk_from_db called (V3)\n")
         
-        from state.state_service import state_service
-        risk = state_service.get_risk_state()
+        # Read from V3 risk_states table
+        import sqlite3
+        db_path = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading/logs/aster.db'
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Read from V3 risk_states table (id=1 is the singleton)
+        cursor.execute("SELECT * FROM risk_states WHERE id = 1")
+        row = cursor.fetchone()
+        conn.close()
         
         with open(debug_log, 'a') as f:
-            f.write(f"[{datetime.now().isoformat()}] risk object: {risk}\n")
+            f.write(f"[{datetime.now().isoformat()}] V3 risk_states row: {dict(row) if row else None}\n")
         
-        if risk:
+        if row:
             result = {
-                'equity': risk.account_equity,
-                'daily_pnl': risk.daily_pnl,
-                'drawdown_pct': risk.drawdown_pct,
-                'risk_limits': risk.risk_limits or {}
+                'equity': row['account_equity'],
+                'daily_pnl': row['daily_pnl'],
+                'drawdown_pct': row['drawdown_pct'],
+                'risk_limits': {}
             }
             with open(debug_log, 'a') as f:
-                f.write(f"[{datetime.now().isoformat()}] returning: {result}\n")
+                f.write(f"[{datetime.now().isoformat()}] V3 returning: {result}\n")
             return result
         else:
             with open(debug_log, 'a') as f:
-                f.write(f"[{datetime.now().isoformat()}] risk is None or falsy\n")
+                f.write(f"[{datetime.now().isoformat()}] V3 risk_states is empty\n")
     except Exception as e:
         import traceback
         with open(debug_log, 'a') as f:
