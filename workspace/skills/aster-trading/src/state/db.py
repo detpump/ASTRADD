@@ -41,13 +41,23 @@ def _ensure_column(cur: sqlite3.Cursor, table: str, column: str, definition: str
 def _ensure_sync_batches_status(cur: sqlite3.Cursor) -> None:
     cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='sync_batches'")
     row = cur.fetchone()
-    if not row or "PARTIAL" in (row[0] or ""):
+    if not row:
+        return
+
+    columns = [
+        "positions_fetched", "orders_fetched", "events_emitted",
+        "projections_succeeded", "projections_failed", "error_message"
+    ]
+    cur.execute(f"PRAGMA table_info(sync_batches)")
+    existing = {r[1] for r in cur.fetchall()}
+    missing = [col for col in columns if col not in existing]
+    if not missing:
         return
 
     cur.execute("ALTER TABLE sync_batches RENAME TO sync_batches_old")
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS sync_batches (
+        CREATE TABLE sync_batches (
             batch_id TEXT PRIMARY KEY,
             started_at INTEGER NOT NULL,
             completed_at INTEGER,
@@ -57,7 +67,13 @@ def _ensure_sync_batches_status(cur: sqlite3.Cursor) -> None:
             account_equity REAL,
             error_msg TEXT,
             metadata_json TEXT,
-            created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+            created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+            positions_fetched INTEGER DEFAULT 0,
+            orders_fetched INTEGER DEFAULT 0,
+            events_emitted INTEGER DEFAULT 0,
+            projections_succeeded INTEGER DEFAULT 0,
+            projections_failed INTEGER DEFAULT 0,
+            error_message TEXT
         )
         """
     )
@@ -73,6 +89,19 @@ def _ensure_sync_batches_status(cur: sqlite3.Cursor) -> None:
         """
     )
     cur.execute("DROP TABLE sync_batches_old")
+
+
+def _ensure_sync_batches_stats(cur: sqlite3.Cursor) -> None:
+    stats_columns = [
+        ("positions_fetched", "positions_fetched INTEGER DEFAULT 0"),
+        ("orders_fetched", "orders_fetched INTEGER DEFAULT 0"),
+        ("events_emitted", "events_emitted INTEGER DEFAULT 0"),
+        ("projections_succeeded", "projections_succeeded INTEGER DEFAULT 0"),
+        ("projections_failed", "projections_failed INTEGER DEFAULT 0"),
+        ("error_message", "error_message TEXT")
+    ]
+    for name, definition in stats_columns:
+        _ensure_column(cur, "sync_batches", name, definition)
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
