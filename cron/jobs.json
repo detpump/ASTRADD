@@ -7,7 +7,7 @@
       "name": "Reporte Trading 2h",
       "enabled": true,
       "createdAtMs": 1771983425424,
-      "updatedAtMs": 1772449391113,
+      "updatedAtMs": 1772490900305,
       "schedule": {
         "kind": "cron",
         "expr": "0 */2 * * *",
@@ -25,11 +25,12 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772456575918,
-        "lastRunAtMs": 1772449375922,
-        "lastStatus": "ok",
-        "lastDurationMs": 15191,
-        "consecutiveErrors": 0
+        "nextRunAtMs": 1772492575918,
+        "lastRunAtMs": 1772490899962,
+        "lastStatus": "error",
+        "lastDurationMs": 343,
+        "consecutiveErrors": 1,
+        "lastError": "Unsupported channel: telegram"
       }
     },
     {
@@ -38,7 +39,7 @@
       "name": "HB Trading 30m",
       "enabled": true,
       "createdAtMs": 1771706400000,
-      "updatedAtMs": 1772452813819,
+      "updatedAtMs": 1772490903311,
       "schedule": {
         "kind": "cron",
         "expr": "*/30 * * * *",
@@ -56,11 +57,12 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772454600000,
-        "lastRunAtMs": 1772452800003,
-        "lastStatus": "ok",
-        "lastDurationMs": 13816,
-        "consecutiveErrors": 0
+        "nextRunAtMs": 1772492400000,
+        "lastRunAtMs": 1772490903119,
+        "lastStatus": "error",
+        "lastDurationMs": 192,
+        "consecutiveErrors": 2,
+        "lastError": "Unsupported channel: telegram"
       }
     },
     {
@@ -69,7 +71,7 @@
       "name": "Events: Signals, Positions, Market 2h",
       "enabled": true,
       "createdAtMs": 1772053800000,
-      "updatedAtMs": 1772449291325,
+      "updatedAtMs": 1772490900764,
       "schedule": {
         "kind": "cron",
         "expr": "0 */2 * * *",
@@ -87,11 +89,12 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772456400000,
-        "lastRunAtMs": 1772449213233,
-        "lastStatus": "ok",
-        "lastDurationMs": 78092,
-        "consecutiveErrors": 0
+        "nextRunAtMs": 1772492400000,
+        "lastRunAtMs": 1772490900493,
+        "lastStatus": "error",
+        "lastDurationMs": 271,
+        "consecutiveErrors": 1,
+        "lastError": "Unsupported channel: telegram"
       }
     }
   ]
