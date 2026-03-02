@@ -13,6 +13,7 @@ from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
 
 from state.repositories import insert_closed_position, insert_raw_signal
 from state.models import ClosedPosition, RawSignal

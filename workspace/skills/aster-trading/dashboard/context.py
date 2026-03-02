@@ -12,6 +12,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
+# Base paths shared with dashboard server - MUST be set before other imports
+BASE_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path('/Users/FIRMAS/.openclaw')
+ROOT_LOGS_DIR = ROOT_DIR / 'logs'
+HISTORY_DIR = ROOT_LOGS_DIR / 'history'
+SRC_DIR = BASE_DIR / 'src'
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+# Now imports will work
 try:
     from services.risk_service import get_normalized_risk_config
 except Exception:
@@ -23,17 +35,6 @@ try:
 except ImportError:
     DASHBOARD_CACHE_AVAILABLE = False
     load_dashboard_snapshot = None
-
-# Base paths shared with dashboard server
-BASE_DIR = Path(__file__).resolve().parent.parent
-ROOT_DIR = Path('/Users/FIRMAS/.openclaw')
-ROOT_LOGS_DIR = ROOT_DIR / 'logs'
-HISTORY_DIR = ROOT_LOGS_DIR / 'history'
-SRC_DIR = BASE_DIR / 'src'
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
 
 # File references
 STATE_FILE = BASE_DIR / 'logs' / 'v2_state.json'
