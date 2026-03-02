@@ -251,6 +251,32 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         """
     )
 
+    # Scale-in eligibility checks log (Gap 2 fix: added symbol field)
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scale_in_conditions_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            position_uuid TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            can_scale_in INTEGER NOT NULL CHECK(can_scale_in IN (0, 1)),
+            path_used TEXT,
+            adx_value REAL,
+            funding_rate REAL,
+            price_distance_pct REAL,
+            margin_ratio REAL,
+            pyramid_level INTEGER,
+            reason TEXT,
+            created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+        )
+        """
+    )
+    
+    # Index for querying by position_uuid
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_scale_in_conditions_log_position_uuid ON scale_in_conditions_log(position_uuid)"
+    )
+
     conn.commit()
 
 
