@@ -414,7 +414,7 @@ class SyncEngine:
                 failures = cur.fetchall()
                 
                 for failure in failures:
-                    error_id, event_id, event_type, error_msg = failure
+                    error_id, event_id, event_type, error_message = failure
                     
                     try:
                         # Increment retry count
