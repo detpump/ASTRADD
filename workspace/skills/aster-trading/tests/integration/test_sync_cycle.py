@@ -151,7 +151,7 @@ class TestSyncCycle:
     @patch('api.aster_api.get_positions_v3')
     @patch('api.aster_api.get_open_orders')
     @patch('api.aster_api.get_balance_v3')
-    def test_sync_records_positions(self, mock_balance, mock_orders, mock_positions, sync_engine, mock_positions_data):
+    def test_sync_records_positions(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync records fetched positions."""
         mock_positions.return_value = [
             {"symbol": "BTCUSDT", "positionAmt": "0.5", "entryPrice": "45000"}

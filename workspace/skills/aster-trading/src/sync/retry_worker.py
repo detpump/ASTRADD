@@ -70,7 +70,12 @@ class RetryWorker:
             logger.info(f"Found {len(errors)} pending events to retry")
             
             for error in errors:
-                error_id, event_id, event_type, position_uuid, error_msg = error[:5]
+                error_id, event_id, event_type, position_uuid, error_msg, retry_count, max_retries, status = error[:8]
+                if status != 'PENDING':
+                    continue
+                if retry_count >= max_retries:
+                    logger.info(f"Skipping event {event_id} because retry_count {retry_count} >= max_retries {max_retries}")
+                    continue
                 
                 try:
                     # Re-fetch event from events table
