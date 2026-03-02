@@ -352,6 +352,7 @@ def _build_execution_latency_snapshot(symbols=None, signal_limit=1200, trade_lim
 
 def _load_risk_from_db():
     """Load risk data from database"""
+    debug_log = '/Users/FIRMAS/.openclaw/logs/risk_load_debug.log'
     try:
         import sys
         # Add workspace/skills/aster-trading to path for dashboard imports
@@ -362,27 +363,48 @@ def _load_risk_from_db():
         src_dir = project_root + '/src'
         if src_dir not in sys.path:
             sys.path.insert(0, src_dir)
+        
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] _load_risk_from_db called\n")
+        
         from state.state_service import state_service
         risk = state_service.get_risk_state()
+        
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] risk object: {risk}\n")
+        
         if risk:
-            return {
+            result = {
                 'equity': risk.account_equity,
                 'daily_pnl': risk.daily_pnl,
                 'drawdown_pct': risk.drawdown_pct,
                 'risk_limits': risk.risk_limits or {}
             }
+            with open(debug_log, 'a') as f:
+                f.write(f"[{datetime.now().isoformat()}] returning: {result}\n")
+            return result
+        else:
+            with open(debug_log, 'a') as f:
+                f.write(f"[{datetime.now().isoformat()}] risk is None or falsy\n")
     except Exception as e:
         import traceback
-        print(f"Error loading risk from DB: {e}")
-        traceback.print_exc()
+        with open(debug_log, 'a') as f:
+            f.write(f"[{datetime.now().isoformat()}] Error: {e}\n")
+            f.write(traceback.format_exc())
     return {}
 
 
 def _build_risk_transparency_snapshot(enabled_symbols=None):
     """Build risk transparency payload for dashboard validation."""
+    debug_log = '/Users/FIRMAS/.openclaw/logs/risk_load_debug.log'
+    
     state = load_state()
     # DB-only risk snapshot
     risk_data = _load_risk_from_db()
+    
+    with open(debug_log, 'a') as f:
+        f.write(f"[{datetime.now().isoformat()}] _build_risk_transparency_snapshot: state.get('equity')={state.get('equity')}, risk_data.get('equity')={risk_data.get('equity')}\n")
+    
     risk_cfg, _ = _load_shared_risk_config()
     global_cfg = risk_cfg.get('global', {}) if isinstance(risk_cfg, dict) else {}
 
