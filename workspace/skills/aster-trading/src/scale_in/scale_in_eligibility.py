@@ -209,7 +209,7 @@ class ScaleInEligibilityChecker:
             position_uuid: Unique identifier for the position
             eligibility: ScaleInEligibility result from check_eligibility
         """
-        from state.db import get_connection
+        from src.state.db import get_connection
         
         with get_connection() as conn:
             cur = conn.cursor()

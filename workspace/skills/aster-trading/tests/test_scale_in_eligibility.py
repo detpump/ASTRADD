@@ -102,7 +102,7 @@ def test_scale_in_eligibility_has_symbol_field():
     - Verify it has a 'symbol' attribute
     - Verify the dataclass can be instantiated with symbol
     """
-    from scale_in.scale_in_eligibility import ScaleInEligibility
+    from src.scale_in.scale_in_eligibility import ScaleInEligibility
     
     # Test that the dataclass has the symbol field
     eligibility = ScaleInEligibility(
@@ -130,7 +130,7 @@ def test_check_eligibility_populates_symbol():
     - The checker correctly extracts symbol from position
     - The returned ScaleInEligibility has the correct symbol
     """
-    from scale_in.scale_in_eligibility import ScaleInEligibilityChecker, ScaleInEligibility
+    from src.scale_in.scale_in_eligibility import ScaleInEligibilityChecker, ScaleInEligibility
     
     checker = ScaleInEligibilityChecker()
     
@@ -171,7 +171,7 @@ def test_log_eligibility_check_with_symbol():
     
     Note: This test directly tests the SQL insertion logic to avoid pydantic dependency.
     """
-    from scale_in.scale_in_eligibility import ScaleInEligibility
+    from src.scale_in.scale_in_eligibility import ScaleInEligibility
     import time
     
     conn = create_test_db()
@@ -233,7 +233,7 @@ def test_eligibility_symbol_not_unknown():
     
     After the fix, symbol should always be present.
     """
-    from scale_in.scale_in_eligibility import ScaleInEligibility, ScaleInEligibilityChecker
+    from src.scale_in.scale_in_eligibility import ScaleInEligibility, ScaleInEligibilityChecker
     
     checker = ScaleInEligibilityChecker()
     
@@ -270,7 +270,7 @@ def test_ineligibility_also_has_symbol():
     
     This ensures the symbol is always present regardless of can_scale_in.
     """
-    from scale_in.scale_in_eligibility import ScaleInEligibilityChecker
+    from src.scale_in.scale_in_eligibility import ScaleInEligibilityChecker
     
     checker = ScaleInEligibilityChecker()
     

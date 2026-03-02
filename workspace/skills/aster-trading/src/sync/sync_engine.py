@@ -11,8 +11,8 @@ import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
-from state.db import get_connection
-from state.repositories import (
+from src.state.db import get_connection
+from src.state.repositories import (
     upsert_position, get_positions, upsert_order, get_orders,
     upsert_risk_state, get_risk_state
 )
@@ -57,19 +57,19 @@ class SyncEngine:
     def _init_projectors(self):
         """Lazy initialization to avoid circular imports."""
         if self.change_detector is None:
-            from sync.change_detector import ChangeDetector
+            from src.sync.change_detector import ChangeDetector
             self.change_detector = ChangeDetector()
         if self.event_emitter is None:
-            from sync.event_emitter import EventEmitter
+            from src.sync.event_emitter import EventEmitter
             self.event_emitter = EventEmitter()
         if self.position_projector is None:
-            from sync.projectors.position_projector import PositionProjector
+            from src.sync.projectors.position_projector import PositionProjector
             self.position_projector = PositionProjector()
         if self.order_projector is None:
-            from sync.projectors.order_projector import OrderProjector
+            from src.sync.projectors.order_projector import OrderProjector
             self.order_projector = OrderProjector()
         if self.bracket_projector is None:
-            from sync.projectors.bracket_projector import BracketProjector
+            from src.sync.projectors.bracket_projector import BracketProjector
             self.bracket_projector = BracketProjector()
     
     def _load_cached_state(self):
@@ -137,8 +137,8 @@ class SyncEngine:
         """Fetch all data from exchange APIs."""
         # Import here to avoid issues if API is not available
         try:
-            from api.aster_api import get_positions_v3, get_open_orders, get_balance_v3
-            from sync.normalizers import (
+            from src.api.aster_api import get_positions_v3, get_open_orders, get_balance_v3
+            from src.sync.normalizers import (
                 normalize_position_response, 
                 normalize_order_response,
                 normalize_balance_response
