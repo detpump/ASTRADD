@@ -1,0 +1,1036 @@
+#!/usr/bin/env python3
+"""
+manage_brackets.py – gestión de SL / TP / trailing-stop y registro de resultados.
+
+Cambios:
+  - register_trade_result ahora usa cycle_id como clave de deduplicación
+    para evitar doble-registro (sync_state_from_exchange.py también lo llama).
+  - Se guarda pnl_pct en trades.jsonl.
+"""
+
+import os
+import sys
+import json
+import math
+import time
+import importlib.util
+from datetime import datetime, UTC
+
+# Add both workspace/src and backup/src to path for imports
+# IMPORTANT: workspace/src must come BEFORE backup/src so workspace takes priority
+_src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_backup_src = "/Users/FIRMAS/.openclaw/skills/aster-trading.backup/src"
+
+# Add workspace src first (takes priority), then backup as fallback
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
+if _backup_src not in sys.path:
+    sys.path.append(_backup_src)
+
+from api.aster_api import (
+    place_order,
+    cancel_all_open_orders,
+    public_get,
+    get_exchange_info,
+    get_positions_v3,
+    get_open_orders,
+)
+from trade_state import get_position_state, set_position_state, clear_position_state
+from centralized_logger import log_trade
+# Importar módulo común para evitar duplicación
+# Using importlib to support both Pylance (static analysis) and runtime
+# This avoids the Pylance "cannot resolve import" error while maintaining runtime behavior
+TRADE_UTILS_AVAILABLE = False
+_register_trade = None
+_update_tp_status = None
+
+# Try to import trade_utils using importlib (works for both static analysis and runtime)
+try:
+    # First try: import from backup src with explicit path (most reliable for runtime)
+    _backup_trade_utils = "/Users/FIRMAS/.openclaw/skills/aster-trading.backup/src/trade_utils.py"
+    if os.path.exists(_backup_trade_utils):
+        spec = importlib.util.spec_from_file_location("trade_utils", _backup_trade_utils)
+        trade_utils_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(trade_utils_mod)
+        _register_trade = trade_utils_mod.register_trade_result
+        _update_tp_status = trade_utils_mod.update_tp_hit_status
+        TRADE_UTILS_AVAILABLE = True
+except Exception:
+    pass
+
+# If that failed, try direct import (might work if sys.path was set up properly)
+if not TRADE_UTILS_AVAILABLE:
+    try:
+        import trade_utils as trade_utils_mod  # type: ignore[import]
+        _register_trade = trade_utils_mod.register_trade_result  # type: ignore[attr-defined]
+        _update_tp_status = trade_utils_mod.update_tp_hit_status  # type: ignore[attr-defined]
+        TRADE_UTILS_AVAILABLE = True
+    except ImportError:
+        pass
+
+if not TRADE_UTILS_AVAILABLE:
+    print("[manage_brackets] trade_utils no disponible, usando implementación local")
+
+# Usar centralized paths - single point of change for server migration
+try:
+    from paths import BASE, DATA_DIR, CONFIG_DIR, STATE_DIR, OPENCLAW_LOGS_DIR
+    ORDERS_LOG_PATH = os.path.join(STATE_DIR, "open_orders_log.json")
+    PERF_PATH = os.path.join(STATE_DIR, "score_performance.json")
+    RISK_CONFIG_PATH = os.path.join(CONFIG_DIR, "risk_config.json")
+except ImportError:
+    # Fallback para cuando paths.py no está disponible
+    BASE = "/Users/FIRMAS/.openclaw/skills/aster-trading"
+    ORDERS_LOG_PATH = os.path.join(BASE, "data/state/open_orders_log.json")
+    PERF_PATH = os.path.join(BASE, "data/state/score_performance.json")
+    RISK_CONFIG_PATH = os.path.join(BASE, "config/risk_config.json")
+
+
+def load_json(path, default=None):
+    if not os.path.exists(path):
+        return default if default is not None else {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default if default is not None else {}
+
+# Trades van al log centralizado - usar paths centralizado
+try:
+    from paths import OPENCLAW_LOGS_DIR, STATE_DIR
+    TRADES_HIST_PATH = os.path.join(OPENCLAW_LOGS_DIR, "trades.jsonl")
+    MARKET_STATE_PATH = os.path.join(STATE_DIR, "market_state.json")
+except ImportError:
+    # Fallback
+    TRADES_HIST_PATH = "/Users/FIRMAS/.openclaw/logs/history/trades.jsonl"
+    MARKET_STATE_PATH = os.path.join(BASE, "data/state/market_state.json")
+
+
+def save_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def append_jsonl(path, record):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def find_symbol_filters(symbol: str):
+    info = get_exchange_info()
+    for s in info.get("symbols", []):
+        if s.get("symbol") == symbol:
+            return s.get("filters", [])
+    raise RuntimeError(f"Symbol {symbol} not found in exchangeInfo")
+
+
+def adjust_price_to_tick(symbol: str, price: float) -> float:
+    filters = find_symbol_filters(symbol)
+    tick_size = None
+    for f in filters:
+        if f.get("filterType") == "PRICE_FILTER":
+            tick_size = float(f["tickSize"])
+    if tick_size is None or tick_size <= 0:
+        return price
+    ticks = round(price / tick_size)
+    return float(f"{ticks * tick_size:.8f}")
+
+
+def adjust_qty_to_lot(symbol: str, qty: float) -> float:
+    filters = find_symbol_filters(symbol)
+    min_qty = step_size = None
+    for f in filters:
+        if f.get("filterType") == "LOT_SIZE":
+            min_qty = float(f["minQty"])
+            step_size = float(f["stepSize"])
+    if min_qty is None or step_size is None:
+        return qty
+    steps = math.floor(qty / step_size + 1e-9)
+    adj = steps * step_size
+    if adj < min_qty:
+        return 0.0
+    return float(f"{adj:.8f}")
+
+
+def get_mark_price(symbol: str) -> float:
+    try:
+        mark = public_get("/fapi/v1/premiumIndex", {"symbol": symbol})
+        if isinstance(mark, list) and mark:
+            mark = mark[0]
+        return float(mark.get("markPrice", 0))
+    except Exception:
+        return 0.0
+
+
+def register_trade_result(
+    symbol: str,
+    side: str,
+    entry_price: float,
+    exit_price: float,
+    pnl_usdt: float,
+    reason_close: str = "unknown",
+    score: float = 0.0,
+    setup_type: str = "unknown",
+    ts_open: str = "",
+    ts_close: str = "",
+    cycle_id: str = "",
+    pnl_pct: float = 0.0,
+):
+    """
+    Wrapper para usar el módulo común trade_utils.
+    Si el módulo no está disponible, usa la implementación local.
+    """
+    if TRADE_UTILS_AVAILABLE:
+        _register_trade(
+            symbol=symbol,
+            side=side,
+            entry_price=entry_price,
+            exit_price=exit_price,
+            pnl_usdt=pnl_usdt,
+            reason_close=reason_close,
+            score=score,
+            setup_type=setup_type,
+            ts_open=ts_open,
+            ts_close=ts_close,
+            cycle_id=cycle_id,
+            pnl_pct=pnl_pct,
+        )
+    else:
+        # Fallback a implementación local (para compatibilidad)
+        _register_trade_result_local(
+            symbol=symbol,
+            side=side,
+            entry_price=entry_price,
+            exit_price=exit_price,
+            pnl_usdt=pnl_usdt,
+            reason_close=reason_close,
+            score=score,
+            setup_type=setup_type,
+            ts_open=ts_open,
+            ts_close=ts_close,
+            cycle_id=cycle_id,
+            pnl_pct=pnl_pct,
+        )
+
+
+def _register_trade_result_local(
+    symbol: str,
+    side: str,
+    entry_price: float,
+    exit_price: float,
+    pnl_usdt: float,
+    reason_close: str = "unknown",
+    score: float = 0.0,
+    setup_type: str = "unknown",
+    ts_open: str = "",
+    ts_close: str = "",
+    cycle_id: str = "",
+    pnl_pct: float = 0.0,
+):
+    """Implementación local de register_trade_result (fallback)."""
+    perf = load_json(
+        PERF_PATH,
+        {
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "total_pnl": 0.0,
+            "by_score_range": {},
+            "by_setup": {},
+            "_registered_cycles": [],
+        },
+    )
+
+    registered = perf.get("_registered_cycles", [])
+    if cycle_id and cycle_id in registered:
+        print(f"[manage_brackets] trade {cycle_id} ya registrado — skip dedup")
+        return
+
+    perf.setdefault("total_trades", 0)
+    perf.setdefault("wins", 0)
+    perf.setdefault("losses", 0)
+    perf.setdefault("total_pnl", 0.0)
+    perf.setdefault("by_score_range", {})
+    perf.setdefault("by_setup", {})
+    perf.setdefault("_registered_cycles", [])
+
+    perf["total_trades"] += 1
+    perf["total_pnl"] += pnl_usdt
+    if pnl_usdt >= 0:
+        perf["wins"] += 1
+    else:
+        perf["losses"] += 1
+
+    if score >= 4.0:
+        srange = "4.0+"
+    elif score >= 3.0:
+        srange = "3.0-3.9"
+    elif score >= 2.0:
+        srange = "2.0-2.9"
+    else:
+        srange = "<2.0"
+
+    sr = perf["by_score_range"].setdefault(
+        srange, {"trades": 0, "wins": 0, "pnl": 0.0}
+    )
+    sr["trades"] += 1
+    sr["pnl"] += pnl_usdt
+    if pnl_usdt >= 0:
+        sr["wins"] += 1
+
+    su = perf["by_setup"].setdefault(
+        setup_type, {"trades": 0, "wins": 0, "pnl": 0.0}
+    )
+    su["trades"] += 1
+    su["pnl"] += pnl_usdt
+    if pnl_usdt >= 0:
+        su["wins"] += 1
+
+    if cycle_id:
+        perf["_registered_cycles"].append(cycle_id)
+        if len(perf["_registered_cycles"]) > 200:
+            perf["_registered_cycles"] = perf["_registered_cycles"][-200:]
+
+    save_json(PERF_PATH, perf)
+
+    record = {
+        "ts_close": ts_close or datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "ts_open": ts_open,
+        "symbol": symbol,
+        "side": side,
+        "entry_price": entry_price,
+        "exit_price": exit_price,
+        "pnl_usdt": round(pnl_usdt, 4),
+        "pnl_pct": round(pnl_pct, 4),
+        "reason_close": reason_close,
+        "score": score,
+        "setup_type": setup_type,
+        "cycle_id": cycle_id,
+    }
+    append_jsonl(TRADES_HIST_PATH, record)
+    # Pass cycle_id for deduplication to prevent duplicate logging
+    log_trade(
+        symbol=symbol,
+        side=side,
+        quantity=0,  # Not available in this context
+        price=exit_price,
+        notional=abs(pnl_usdt),
+        status="FILLED",
+        pnl=pnl_usdt,
+        cycle_id=cycle_id
+    )
+
+    print(
+        f"[manage_brackets] trade registrado: {symbol} {side} "
+        f"pnl={pnl_usdt:.4f} ({pnl_pct*100:.2f}%) reason={reason_close} cycle={cycle_id}"
+    )
+
+
+def _update_tp_hit_status_local(symbol: str, tp1_order_id: str = None, tp2_order_id: str = None):
+    """
+    Implementación local para actualizar el estado de TP hit cuando trade_utils no está disponible.
+    Consulta las órdenes abiertas del exchange para determinar si TP1 o TP2 fueron ejecutados.
+    
+    FIX: Ahora identifica correctamente las órdenes TP1 vs TP2 basándose en los precios
+    almacenados en el estado de la posición.
+    """
+    try:
+        from api.aster_api import get_open_orders
+        open_orders = get_open_orders(symbol)
+    except Exception as e:
+        print(f"[brackets] Error obteniendo órdenes abiertas para {symbol}: {e}")
+        return
+    
+    # Obtener estado de la posición para saber los precios objetivo
+    state = get_position_state(symbol)
+    if not state:
+        return
+    
+    # Get target prices from state
+    tp1_price = state.get("tp1_price", 0)
+    tp2_price = state.get("tp2_price", 0)
+    
+    # Mapeo de orderId a tipo de orden
+    order_type_map = {}
+    
+    for o in open_orders:
+        order_id = str(o.get("orderId", ""))
+        order_type = o.get("type", "")
+        stop_price = float(o.get("stopPrice", 0))
+        
+        if order_type == "TAKE_PROFIT_MARKET" and stop_price > 0:
+            # Determinar si es TP1 o TP2 comparando precios
+            if tp1_price > 0 and abs(stop_price - tp1_price) < tp1_price * 0.01:
+                order_type_map[order_id] = "TP1"
+            elif tp2_price > 0 and abs(stop_price - tp2_price) < tp2_price * 0.01:
+                order_type_map[order_id] = "TP2"
+    
+    # Obtener IDs de órdenes actualmente abiertas
+    current_open_ids = {str(o.get("orderId", "")) for o in open_orders}
+    
+    # Verificar cada orden objetivo
+    # TP1
+    if tp1_order_id:
+        tp1_str = str(tp1_order_id)
+        if tp1_str not in current_open_ids:
+            # Orden ejecutada (ya no está abierta)
+            if not state.get("tp1_hit", False):
+                state["tp1_hit"] = True
+                state["tp1_hit_time"] = int(time.time() * 1000)
+                print(f"[brackets] TP1 ejecutado para {symbol} @ price {tp1_price}")
+    
+    # TP2
+    if tp2_order_id:
+        tp2_str = str(tp2_order_id)
+        if tp2_str not in current_open_ids:
+            # Orden ejecutada (ya no está abierta)
+            if not state.get("tp2_hit", False):
+                state["tp2_hit"] = True
+                state["tp2_hit_time"] = int(time.time() * 1000)
+                print(f"[brackets] TP2 ejecutado para {symbol} @ price {tp2_price}")
+    
+    #También verificar SL
+    sl_order_id = state.get("sl_order_id")
+    if sl_order_id:
+        sl_str = str(sl_order_id)
+        if sl_str not in current_open_ids:
+            if not state.get("sl_hit", False):
+                state["sl_hit"] = True
+                state["sl_hit_time"] = int(time.time() * 1000)
+                print(f"[brackets] SL ejecutado para {symbol}")
+    
+    set_position_state(symbol, state)
+
+
+def update_tp_hit_tracking():
+    """
+    Actualiza el estado de tp1_hit/tp2_hit consultando las órdenes del exchange.
+    Esta función debe llamarse antes de manage_brackets para mantener el estado actualizado.
+    """
+    orders = load_json(ORDERS_LOG_PATH, {"orders": []}).get("orders", [])
+    
+    for o in orders:
+        if o.get("action") != "OPEN" or o.get("status") != "EXECUTED":
+            continue
+        
+        symbol = o.get("symbol")
+        if not symbol:
+            continue
+        
+        state = get_position_state(symbol)
+        if not state:
+            continue
+        
+        tp1_order_id = state.get("tp1_order_id")
+        tp2_order_id = state.get("tp2_order_id")
+        
+        if tp1_order_id or tp2_order_id:
+            if TRADE_UTILS_AVAILABLE:
+                _update_tp_status(symbol, tp1_order_id, tp2_order_id)
+            else:
+                _update_tp_hit_status_local(symbol, tp1_order_id, tp2_order_id)
+
+
+def _calculate_brackets(entry: float, side: str, risk: dict, symbol: str = None) -> dict:
+    """
+    Calcula los niveles de precio para SL, TP1, TP2 y trailing stop.
+    
+    Distribución de posición (basado en v1):
+    - Surf: porción que queda con trailing (ej: 30%)
+    - Rest: tamaño - surf
+    - TP1: 50% del rest
+    - TP2: 50% del rest
+    """
+    sl_pct = float(risk.get("sl_pct", 1.5)) / 100.0
+    tp1_pct = float(risk.get("tp1_pct", 2.0)) / 100.0
+    # TP2 usa un valor por defecto si no está configurado
+    tp2_pct = float(risk.get("tp2_pct", 3.0)) / 100.0
+    trailing_trigger_pct = float(risk.get("trailing_trigger_pct", 1.5)) / 100.0
+    trailing_callback_pct = float(risk.get("trailing_callback_pct", 0.5))
+    # Porcentaje de la posición que va a surf (trailing)
+    surf_qty_pct = float(risk.get("surf_qty_pct", 0.3))
+
+    if side == "BUY":
+        sl_price = entry * (1 - sl_pct)
+        tp1_price = entry * (1 + tp1_pct)
+        tp2_price = entry * (1 + tp2_pct)
+        trailing_activation = entry * (1 + trailing_trigger_pct)
+        close_side = "SELL"
+    else:
+        sl_price = entry * (1 + sl_pct)
+        tp1_price = entry * (1 - tp1_pct)
+        tp2_price = entry * (1 - tp2_pct)
+        trailing_activation = entry * (1 - trailing_trigger_pct)
+        close_side = "BUY"
+
+    if symbol:
+        sl_price = adjust_price_to_tick(symbol, sl_price)
+        tp1_price = adjust_price_to_tick(symbol, tp1_price)
+        tp2_price = adjust_price_to_tick(symbol, tp2_price)
+        trailing_activation = adjust_price_to_tick(symbol, trailing_activation)
+
+    return {
+        "sl_price": sl_price,
+        "tp1_price": tp1_price,
+        "tp2_price": tp2_price,
+        "trailing_activation": trailing_activation,
+        "trailing_callback_pct": trailing_callback_pct,
+        "trailing_trigger_pct": trailing_trigger_pct,  # Needed for dynamic calculation
+        "surf_qty_pct": surf_qty_pct,
+        "close_side": close_side,
+    }
+
+
+def _check_and_handle_tp1_hit(symbol: str, state: dict, brackets: dict) -> bool:
+    """
+    Maneja la transición cuando TP1 es alcanzado:
+    - Marca TP1 como hit
+    - Mantiene TP2 order (se ejecutará después)
+    - La posición restante se convierte en Surf (sin trailing hasta TP2)
+    
+    IMPORTANTE: No cancelamos TP2. Dejamos que TP2 se ejecute naturalmente.
+    Cuando TP2 luego se ejecuta,，我们将激活 trailing stop。
+    
+    Returns True si TP1 fue alcanzado y se procesó.
+    """
+    tp1_hit = state.get("tp1_hit", False)
+    if tp1_hit:
+        return False  # Ya procesado
+    
+    # Verificar si tenemos el order ID de TP1
+    tp1_order_id = state.get("tp1_order_id")
+    if not tp1_order_id:
+        return False
+    
+    entry = float(state.get("entry_price", state.get("entry", 0)))
+    if entry <= 0:
+        return False
+    
+    side = state.get("side", "BUY")
+    close_side = "SELL" if side == "BUY" else "BUY"
+    
+    print(f"[brackets] TP1 alcanzado para {symbol} - moviendo SL a break-even")
+    
+    # ========== NUEVO: Mover SL a break-even cuando TP1 es alcanzado ==========
+    # Esto protege el profit ganado en TP1 inmediatamente
+    break_even_price = adjust_price_to_tick(symbol, entry)
+    
+    # Cancelar SL anterior y colocar nuevo en break-even
+    try:
+        cancel_all_open_orders(symbol)
+    except Exception as e:
+        print(f"[brackets] Error cancelando órdenes para break-even {symbol}: {e}")
+    
+    # Colocar SL en break-even para proteger la posición restante
+    try:
+        remaining_size = float(state.get("size", 0))
+        # Después de TP1 (35%), queda ~65% de la posición
+        remaining_size = remaining_size * 0.65  # Approximate after TP1
+        remaining_size = adjust_qty_to_lot(symbol, remaining_size)
+        
+        if remaining_size > 0:
+            place_order(
+                {
+                    "symbol": symbol,
+                    "side": close_side,
+                    "type": "STOP_MARKET",
+                    "stopPrice": f"{break_even_price:.8f}",
+                    "quantity": f"{remaining_size:.8f}",
+                    "reduceOnly": "true",
+                    "timeInForce": "GTC",
+                    "workingType": "MARK_PRICE",
+                }
+            )
+            state["sl_at_break_even"] = True
+            state["break_even_price"] = break_even_price
+            print(f"[brackets] ✅ SL movido a break-even: {symbol} @ {break_even_price}")
+    except Exception as e:
+        print(f"[brackets] Error SL break-even {symbol}: {e}")
+    
+    # NO cancelamos TP2 - lo mantenemos para que se ejecute
+    # La posición restante (después de TP1 + TP2) será el Surf con trailing
+    
+    # Actualizar estado: TP1 hit, posición ahora es Surf (esperando TP2)
+    state["tp1_hit"] = True
+    state["surf_phase"] = True  # Marca que estamos en fase Surf (esperando trailing después de TP2)
+    
+    # Guardar el precio de entrada para referencia
+    state["surf_entry"] = entry
+    
+    set_position_state(symbol, state)
+    print(f"[brackets] TP1 hit registrado para {symbol} - TP2 mantiene activo")
+    
+    return True
+
+
+def _check_and_handle_tp2_hit(symbol: str, state: dict, brackets: dict) -> bool:
+    """
+    Verifica si TP2 ha sido alcanzado y ejecuta las acciones necesarias:
+    - Mueve SL a break-even
+    - Activa trailing stop para la posición restante (Surf)
+    
+    IMPORTANTE: 
+    - Solo activamos trailing si TP1 también fue hit (ambas parciales ejecutadas)
+    - Calculate trailing_activation DINÁMICAMENTE basado en el precio actual
+      cuando TP2 realmente se ejecuta, no en el precio de entrada.
+    
+    Returns True si TP2 fue alcanzado y se ejecutaron las acciones.
+    """
+    tp2_hit = state.get("tp2_hit", False)
+    if tp2_hit:
+        return False  # Ya procesado
+    
+    # Verificar si tenemos el order ID de TP2
+    tp2_order_id = state.get("tp2_order_id")
+    if not tp2_order_id:
+        # TP2 order might have been filled but we can't track it
+        # Check if both TP1 and TP2 are marked as hit
+        tp1_hit = state.get("tp1_hit", False)
+        if not tp1_hit:
+            return False  # Neither TP1 nor TP2 has been hit
+        # TP1 was hit but TP2 order_id is gone - assume TP2 was executed
+    
+    # Aquí usamos la lógica de que si TP2 ya fue hit (desde trade_utils),
+    # movemos el SL a break-even y activamos trailing
+    entry = float(state.get("entry_price", state.get("entry", 0)))
+    if entry <= 0:
+        return False
+    
+    side = state.get("side", "BUY")
+    close_side = "SELL" if side == "BUY" else "BUY"
+    
+    # Calcular break-even price
+    break_even_price = adjust_price_to_tick(symbol, entry)
+    
+    # Obtener el tamaño restante después de TP1 y TP2
+    # Asumimos que TP1 y TP2 cierran el 70% (35% cada uno) y Surf es 30%
+    surf_qty_pct = brackets.get("surf_qty_pct", 0.3)
+    remaining_pct = surf_qty_pct  # Lo que queda después de TP1+TP2
+    
+    try:
+        # Cancelar órdenes existentes para reemplazar SL
+        cancel_all_open_orders(symbol)
+    except Exception as e:
+        print(f"[brackets] Error cancelando órdenes para TP2 hit {symbol}: {e}")
+    
+    # Colocar SL en break-even
+    try:
+        remaining_size = float(state.get("size", 0)) * remaining_pct
+        remaining_size = adjust_qty_to_lot(symbol, remaining_size)
+        
+        if remaining_size > 0:
+            place_order(
+                {
+                    "symbol": symbol,
+                    "side": close_side,
+                    "type": "STOP_MARKET",
+                    "stopPrice": f"{break_even_price:.8f}",
+                    "quantity": f"{remaining_size:.8f}",
+                    "reduceOnly": "true",
+                    "timeInForce": "GTC",
+                    "workingType": "MARK_PRICE",
+                }
+            )
+            print(f"[brackets] SL movido a break-even tras TP2: {symbol} @ {break_even_price}")
+    except Exception as e:
+        print(f"[brackets] Error SL break-even {symbol}: {e}")
+    
+    # ========== DINÁMICO: Calcular trailing_activation cuando TP2 REALMENTE se ejecuta ==========
+    # Obtener precio actual del mercado
+    current_price = get_mark_price(symbol)
+    if current_price <= 0:
+        # Fallback al precio de entrada si no podemos obtener precio actual
+        current_price = entry
+        print(f"[brackets] Advertencia: no se pudo obtener precio actual, usando entry para {symbol}")
+    
+    # Calcular activación del trailing basada en el precio ACTUAL, no en el de entrada
+    trailing_trigger_pct = float(brackets.get("trailing_trigger_pct", 1.5)) / 100.0
+    if side == "BUY":
+        # Para LONG: activation es mayor que precio actual
+        trailing_activation = current_price * (1 + trailing_trigger_pct)
+    else:
+        # Para SHORT: activation es menor que precio actual
+        trailing_activation = current_price * (1 - trailing_trigger_pct)
+    
+    trailing_activation = adjust_price_to_tick(symbol, trailing_activation)
+    trailing_callback = brackets.get("trailing_callback_pct", 0.5)
+    
+    print(f"[brackets] Trailing activation DINÁMICO para {symbol}: current={current_price} activation={trailing_activation}")
+    
+    if trailing_activation and remaining_size > 0:
+        try:
+            place_order(
+                {
+                    "symbol": symbol,
+                    "side": close_side,
+                    "type": "TRAILING_STOP_MARKET",
+                    "activationPrice": f"{trailing_activation:.8f}",
+                    "callbackRate": f"{trailing_callback}",
+                    "quantity": f"{remaining_size:.8f}",
+                    "reduceOnly": "true",
+                    "timeInForce": "GTC",
+                }
+            )
+            print(
+                f"[brackets] Trailing activado tras TP2: {symbol} activation={trailing_activation} "
+                f"cb={trailing_callback}% (precio actual={current_price})"
+            )
+            # Actualizar estado
+            state["trailing_active"] = True
+            state["sl_price"] = break_even_price
+            state["trailing_activation_dynamic"] = trailing_activation
+            state["trailing_activated_at_price"] = current_price
+            set_position_state(symbol, state)
+        except Exception as e:
+            print(f"[brackets] Error trailing tras TP2 {symbol}: {e}")
+    
+    return True
+
+
+def manage_brackets():
+    """
+    Coloca SL/TP/trailing para las órdenes OPEN ejecutadas que aún no tienen brackets.
+    Primero actualiza el tracking de TP hit.
+    
+    Distribución de posición:
+    - Surf: porción que queda con trailing (configurable, ej: 30%)
+    - Rest: tamaño - surf
+    - TP1: 50% del rest
+    - TP2: 50% del rest
+    """
+    # Actualizar estado de TP hit antes de gestionar brackets
+    update_tp_hit_tracking()
+    
+    orders = load_json(ORDERS_LOG_PATH, {"orders": []}).get("orders", [])
+    risk = load_json(RISK_CONFIG_PATH, {})
+
+    for o in orders:
+        if o.get("action") != "OPEN" or o.get("status") != "EXECUTED":
+            continue
+        if o.get("brackets_placed"):
+            continue
+
+        symbol = o.get("symbol")
+        side = o.get("side")
+        if not symbol or not side:
+            continue
+
+        state = get_position_state(symbol) or {}
+        # Soportar tanto "entry" como "entry_price" para compatibilidad
+        entry = float(state.get("entry_price", state.get("entry", 0)))
+        size = float(state.get("size", 0))
+
+        if size <= 0 or entry <= 0:
+            continue
+
+        # Calcular todos los niveles de brackets
+        brackets = _calculate_brackets(entry, side, risk, symbol)
+        
+        sl_price = brackets["sl_price"]
+        tp1_price = brackets["tp1_price"]
+        tp2_price = brackets["tp2_price"]
+        trailing_activation = brackets["trailing_activation"]
+        trailing_callback_pct = brackets["trailing_callback_pct"]
+        surf_qty_pct = brackets["surf_qty_pct"]
+        close_side = brackets["close_side"]
+
+        # Calcular cantidades según distribución v1
+        # surf_qty = size * surf_qty_pct
+        # rest = size - surf_qty
+        # tp1_qty = rest * 0.5
+        # tp2_qty = rest * 0.5
+        surf_qty = adjust_qty_to_lot(symbol, size * surf_qty_pct)
+        rest_qty = size - surf_qty
+        tp1_qty = adjust_qty_to_lot(symbol, rest_qty * 0.5)
+        tp2_qty = adjust_qty_to_lot(symbol, rest_qty * 0.5)
+        
+        # Validar que las cantidades cubran toda la posición
+        total_parts = tp1_qty + tp2_qty + surf_qty
+        if total_parts < size * 0.99:  # Allow 1% tolerance
+            # Ajustar para cubrir toda la posición
+            surf_qty = adjust_qty_to_lot(symbol, size - tp1_qty - tp2_qty)
+
+        try:
+            cancel_all_open_orders(symbol)
+        except Exception:
+            pass
+
+        # Colocar SL
+        sl_order_id = None
+        try:
+            sl_qty = adjust_qty_to_lot(symbol, size)
+            if sl_qty > 0:
+                sl_order = place_order(
+                    {
+                        "symbol": symbol,
+                        "side": close_side,
+                        "type": "STOP_MARKET",
+                        "stopPrice": f"{sl_price:.8f}",
+                        "quantity": f"{sl_qty:.8f}",
+                        "reduceOnly": "true",
+                        "timeInForce": "GTC",
+                        "workingType": "MARK_PRICE",
+                    }
+                )
+                sl_order_id = sl_order.get("orderId")
+                state["sl_order_id"] = sl_order_id
+                print(f"[brackets] SL colocado: {symbol} @ {sl_price}")
+        except Exception as e:
+            print(f"[brackets] Error SL {symbol}: {e}")
+
+        # Colocar TP1
+        if tp1_qty > 0:
+            try:
+                tp1_order = place_order(
+                    {
+                        "symbol": symbol,
+                        "side": close_side,
+                        "type": "TAKE_PROFIT_MARKET",
+                        "stopPrice": f"{tp1_price:.8f}",
+                        "quantity": f"{tp1_qty:.8f}",
+                        "reduceOnly": "true",
+                        "timeInForce": "GTC",
+                        "workingType": "MARK_PRICE",
+                    }
+                )
+                tp1_order_id = tp1_order.get("orderId")
+                print(f"[brackets] TP1 colocado: {symbol} @ {tp1_price} qty={tp1_qty}")
+                
+                # Guardar TP1 order ID en estado
+                state["tp1_order_id"] = tp1_order_id
+            except Exception as e:
+                print(f"[brackets] Error TP1 {symbol}: {e}")
+
+        # Colocar TP2
+        if tp2_qty > 0:
+            try:
+                tp2_order = place_order(
+                    {
+                        "symbol": symbol,
+                        "side": close_side,
+                        "type": "TAKE_PROFIT_MARKET",
+                        "stopPrice": f"{tp2_price:.8f}",
+                        "quantity": f"{tp2_qty:.8f}",
+                        "reduceOnly": "true",
+                        "timeInForce": "GTC",
+                        "workingType": "MARK_PRICE",
+                    }
+                )
+                tp2_order_id = tp2_order.get("orderId")
+                print(f"[brackets] TP2 colocado: {symbol} @ {tp2_price} qty={tp2_qty}")
+                
+                # Guardar TP2 order ID en estado
+                state["tp2_order_id"] = tp2_order_id
+            except Exception as e:
+                print(f"[brackets] Error TP2 {symbol}: {e}")
+
+        # NOT placing trailing stop here - it will be placed AFTER TP2 hits
+        # This ensures the trailing stop is only activated when TP2 is hit
+        # The Surf portion stays in the position without a trailing stop until then
+        # See _check_and_handle_tp2_hit() for trailing activation after TP2
+        # 
+        # REMOVED: Early trailing stop placement (was causing duplicate orders)
+        # trailing_qty = adjust_qty_to_lot(symbol, size - tp1_qty - tp2_qty)
+        # if trailing_qty > 0:
+        #     try:
+        #         place_order(
+        #             {
+        #                 "symbol": symbol,
+        #                 "side": close_side,
+        #                 "type": "TRAILING_STOP_MARKET",
+        #                 "activationPrice": f"{trailing_activation:.8f}",
+        #                 "callbackRate": f"{trailing_callback_pct}",
+        #                 "quantity": f"{trailing_qty:.8f}",
+        #                 "reduceOnly": "true",
+        #                 "timeInForce": "GTC",
+        #             }
+        #         )
+        #         print(
+        #             f"[brackets] Trailing colocado: {symbol} activation={trailing_activation} "
+        #             f"cb={trailing_callback_pct}%"
+        #         )
+        #         # Marcar trailing_active en estado
+        #         state["trailing_active"] = True
+        #     except Exception as e:
+        #         print(f"[brackets] Error trailing {symbol}: {e}")
+
+        # Guardar niveles en estado para referencia
+        state["sl_price"] = sl_price
+        state["tp1_price"] = tp1_price
+        state["tp2_price"] = tp2_price
+        state["tp1_hit"] = state.get("tp1_hit", False)
+        state["tp2_hit"] = state.get("tp2_hit", False)
+        state["surf_qty"] = surf_qty
+        state["tp1_qty"] = tp1_qty
+        state["tp2_qty"] = tp2_qty
+        
+        set_position_state(symbol, state)
+
+        o["brackets_placed"] = True
+        o["brackets_ts"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    save_json(ORDERS_LOG_PATH, {"orders": orders})
+
+
+def check_closed_positions():
+    """
+    Revisa posiciones cerradas y, si todavía existe state, registra el trade.
+    Usa cycle_id para deduplicar con sync_state_from_exchange.
+    """
+    # Load symbols from config
+    risk_cfg = load_json(RISK_CONFIG_PATH, {})
+    symbols_cfg = risk_cfg.get("symbols", {})
+    enabled_symbols = [s for s, cfg in symbols_cfg.items() if cfg.get("enabled", False)]
+    
+    # Filter positions to only include enabled symbols
+    positions = get_positions_v3(symbols=enabled_symbols)
+    exchange_open = set()
+
+    for p in positions:
+        try:
+            sym = p["symbol"]
+            amt = float(p.get("positionAmt", 0.0))
+        except Exception:
+            continue
+        if abs(amt) > 0:
+            exchange_open.add(sym)
+
+    orders = load_json(ORDERS_LOG_PATH, {"orders": []}).get("orders", [])
+
+    for o in orders:
+        if o.get("action") != "OPEN" or o.get("status") != "EXECUTED":
+            continue
+        if o.get("trade_registered"):
+            continue
+
+        symbol = o.get("symbol")
+        if not symbol:
+            continue
+
+        if symbol in exchange_open:
+            continue
+
+        state = get_position_state(symbol)
+        if not state:
+            # sync_state ya limpió y registró
+            o["trade_registered"] = True
+            continue
+
+        # Soportar tanto "entry" como "entry_price" para compatibilidad
+        entry = float(state.get("entry_price", state.get("entry", 0)))
+        side = state.get("side", "BUY")
+        size = float(state.get("size", 0))
+        score = float(state.get("score", 0))
+        setup = state.get("setup_type", "unknown")
+        ts_open = state.get("ts_open", "")
+        cycle_id = state.get("cycle_id", "")
+
+        if entry <= 0:
+            o["trade_registered"] = True
+            clear_position_state(symbol)
+            continue
+
+        mark = get_mark_price(symbol)
+        exit_price = mark if mark > 0 else entry
+
+        if side == "BUY":
+            pnl_usdt = (exit_price - entry) * size
+            pnl_pct = (exit_price - entry) / entry if entry > 0 else 0.0
+        else:
+            pnl_usdt = (entry - exit_price) * size
+            pnl_pct = (entry - exit_price) / entry if entry > 0 else 0.0
+
+        register_trade_result(
+            symbol=symbol,
+            side=side,
+            entry_price=entry,
+            exit_price=exit_price,
+            pnl_usdt=pnl_usdt,
+            reason_close="detected_by_brackets",
+            score=score,
+            setup_type=setup,
+            ts_open=ts_open,
+            ts_close=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            cycle_id=cycle_id,
+            pnl_pct=pnl_pct,
+        )
+
+        o["trade_registered"] = True
+        clear_position_state(symbol)
+
+    save_json(ORDERS_LOG_PATH, {"orders": orders})
+
+
+def main():
+    """
+    Función principal que:
+    1. Actualiza el tracking de TP1/TP2 hit
+    2. Verifica y maneja TP1 hits (transición a Surf)
+    3. Verifica y maneja TP2 hits (mover SL a break-even, activar trailing)
+    4. Coloca brackets para posiciones nuevas
+    5. Verifica posiciones cerradas
+    """
+    # Actualizar tracking de TP hits primero
+    update_tp_hit_tracking()
+    
+    # Cargar estado y riesgo para manejar TP1/TP2 hits
+    risk = load_json(RISK_CONFIG_PATH, {})
+    orders = load_json(ORDERS_LOG_PATH, {"orders": []}).get("orders", [])
+    
+    # Procesar cada posición abierta para verificar TP1 y TP2 hits
+    for o in orders:
+        if o.get("action") != "OPEN" or o.get("status") != "EXECUTED":
+            continue
+            
+        symbol = o.get("symbol")
+        if not symbol:
+            continue
+            
+        state = get_position_state(symbol)
+        if not state:
+            continue
+        
+        # ========== TP1 Hit Handler ==========
+        # Manejar transición TP1→Surf (sin TP2)
+        tp1_hit = state.get("tp1_hit", False)
+        if tp1_hit and not state.get("tp1_handled", False):
+            entry = float(state.get("entry_price", state.get("entry", 0)))
+            side = state.get("side", "BUY")
+            
+            if entry > 0:
+                brackets = _calculate_brackets(entry, side, risk, symbol)
+                
+                # Manejar TP1 hit (transición a Surf)
+                if _check_and_handle_tp1_hit(symbol, state, brackets):
+                    state["tp1_handled"] = True
+                    set_position_state(symbol, state)
+                    print(f"[brackets] TP1 hit procesado para {symbol}")
+        
+        # ========== TP2 Hit Handler ==========
+        # Verificar si TP2 fue alcanzado y manejarlo (activar trailing dinámico)
+        tp2_hit = state.get("tp2_hit", False)
+        if tp2_hit and not state.get("tp2_handled", False):
+            # Calcular brackets para obtener precios
+            entry = float(state.get("entry_price", state.get("entry", 0)))
+            side = state.get("side", "BUY")
+            
+            if entry > 0:
+                brackets = _calculate_brackets(entry, side, risk, symbol)
+                
+                # Verificar y manejar TP2 hit (con trailing activation DINÁMICO)
+                if _check_and_handle_tp2_hit(symbol, state, brackets):
+                    state["tp2_handled"] = True
+                    set_position_state(symbol, state)
+                    print(f"[brackets] TP2 hit procesado para {symbol}")
+    
+    # Colocar brackets para posiciones nuevas
+    manage_brackets()
+    
+    # Verificar posiciones cerradas
+    check_closed_positions()
+    print("[manage_brackets] done")
+
+
+if __name__ == "__main__":
+    main()

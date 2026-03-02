@@ -1,0 +1,7 @@
+# Code Mode Guidance
+- Use [`services/risk_service.get_shared_risk_guard()`](workspace/skills/aster-trading/src/services/risk_service.py:66) whenever you need RiskGuard; instantiating `RiskGuard` directly writes to a different `logs/risk_state.json` and breaks self-healing.
+- Trading entry points assume the repo path `/Users/FIRMAS/.openclaw/skills/aster-trading`; changing paths or running from elsewhere breaks `.env` discovery (see [`trading_system.py`](workspace/skills/aster-trading/src/trading_system.py:24)).
+- Control scripts hardcode the venv python at `/Users/FIRMAS/.openclaw/.venv/bin/python`; patch those scripts if you change interpreters, otherwise runtime and tests silently use the wrong environment.
+- Self-heal logic in [`trading_system.py`](workspace/skills/aster-trading/src/trading_system.py:1980) only adds missing SL/TP orders—never delete SL/TP outside this routine or you’ll trigger constant re-creations.
+- `scale_in_position.py` requires TP2 hit OR SL at breakeven plus ADX/funding filters; remember to update `trade_state` flags when adding new exit logic or scale-ins will never trigger.
+- Dashboard endpoints ([`dashboard/server.py`](workspace/skills/aster-trading/dashboard/server.py:3115)) stream historical metrics from `/Users/FIRMAS/.openclaw/logs/history/{equity,trades,risk}.jsonl`. When implementing new persistence or cleaning logs, keep those JSONL writers and rotations aligned with `logs/v2_state.json`/`risk_state.json` or the dashboard cards will stop updating.

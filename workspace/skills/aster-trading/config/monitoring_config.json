@@ -1,0 +1,105 @@
+{
+    "alerting": {
+        "enabled": true,
+        "channels": ["telegram", "log", "email"],
+        "telegram": {
+            "enabled": true,
+            "bot_token_env": "TELEGRAM_BOT_TOKEN",
+            "chat_id_env": "TELEGRAM_CHAT_ID",
+            "notify_on": ["critical", "error", "warning"]
+        },
+        "email": {
+            "enabled": false,
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587,
+            "from_address": "alerts@aster-trading.com",
+            "to_addresses": ["admin@aster-trading.com"],
+            "notify_on": ["critical"]
+        }
+    },
+    "thresholds": {
+        "error_rate": {
+            "warning": 0.03,
+            "critical": 0.10
+        },
+        "latency_ms": {
+            "warning": 500,
+            "critical": 2000
+        },
+        "circuit_breaker": {
+            "open_state_duration_seconds": 60,
+            "failure_threshold": 5
+        },
+        "risk": {
+            "max_daily_loss_pct": 0.05,
+            "max_position_size": 10000,
+            "max_open_positions": 10
+        },
+        "api": {
+            "rate_limit_per_minute": 60,
+            "timeout_seconds": 30
+        }
+    },
+    "metrics": {
+        "enabled": true,
+        "interval_seconds": 60,
+        "export": {
+            "prometheus": {
+                "enabled": false,
+                "port": 9090,
+                "path": "/metrics"
+            },
+            "statsd": {
+                "enabled": false,
+                "host": "localhost",
+                "port": 8125
+            }
+        }
+    },
+    "health_check": {
+        "enabled": true,
+        "interval_seconds": 30,
+        "endpoints": {
+            "database": {
+                "enabled": true,
+                "timeout_seconds": 5
+            },
+            "redis": {
+                "enabled": true,
+                "timeout_seconds": 2
+            },
+            "api": {
+                "enabled": true,
+                "timeout_seconds": 10
+            }
+        }
+    },
+    "logging": {
+        "level": "INFO",
+        "format": "json",
+        "outputs": ["file", "stdout"],
+        "file": {
+            "path": "logs/application.log",
+            "max_size_mb": 100,
+            "backup_count": 10
+        }
+    },
+    "monitoring_groups": {
+        "validation": {
+            "enabled": true,
+            "metrics": ["validation_failures", "validation_latency"]
+        },
+        "api": {
+            "enabled": true,
+            "metrics": ["api_calls", "api_errors", "circuit_breaker_state"]
+        },
+        "trading": {
+            "enabled": true,
+            "metrics": ["trades_executed", "trades_rejected", "position_sizes"]
+        },
+        "risk": {
+            "enabled": true,
+            "metrics": ["risk_violations", "daily_pnl", "exposure"]
+        }
+    }
+}

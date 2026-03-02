@@ -1,0 +1,1021 @@
+#!/usr/bin/env python3
+"""
+API module for Aster Finance exchange.
+Handles authentication and API calls to the Aster DEX futures API.
+
+IMPORTANT: Aster DEX uses Web3/ETH-style ECDSA authentication, NOT HMAC SHA256.
+The signing is done using the private key with EIP-712 structured data signing.
+"""
+from __future__ import annotations
+
+import os
+import time
+import math
+import logging
+import threading
+import re
+from typing import Dict, Any, List, Optional
+from enum import Enum
+from dataclasses import dataclass
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("aster_api")
+
+
+# =======================
+# Constants for API Configuration
+# =======================
+
+# Rate limiting
+RATE_LIMIT_MIN_INTERVAL: float = 0.1  # Minimum 100ms between API calls
+
+# HTTP configuration
+DEFAULT_RECV_WINDOW: int = 5000  # Receive window in milliseconds
+REQUEST_TIMEOUT_SECONDS: float = 10.0
+CONNECT_TIMEOUT_SECONDS: float = 5.0
+
+# Retry configuration
+RETRY_AFTER_DEFAULT: int = 60  # Default seconds to wait after rate limit
+DEFAULT_KLINES_LIMIT: int = 100  # Default number of klines to fetch
+DEFAULT_TRADES_LIMIT: int = 100  # Default number of trades to fetch
+
+# Circuit breaker / Health Monitor
+# =======================
+
+class CircuitState(Enum):
+    """Circuit breaker states"""
+    CLOSED = "closed"      # Normal operation
+    OPEN = "open"          # Failing, reject calls
+    HALF_OPEN = "half_open"  # Testing recovery
+
+
+@dataclass
+class CircuitBreakerConfig:
+    """Configuration for circuit breaker"""
+    failure_threshold: int = 5          # Failures before opening circuit
+    success_threshold: int = 2          # Successes needed to close circuit
+    timeout_seconds: float = 30.0       # Time before trying half-open
+    half_open_max_calls: int = 3        # Max calls in half-open state
+
+
+class CircuitBreaker:
+    """
+    Circuit breaker implementation for API health monitoring.
+    Prevents cascading failures by stopping requests when API is unhealthy.
+    """
+    
+    def __init__(self, name: str, config: CircuitBreakerConfig = None):
+        self.name = name
+        self.config = config or CircuitBreakerConfig()
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time = 0
+        self._lock = threading.Lock()
+        self._half_open_calls = 0
+        
+    @property
+    def state(self) -> CircuitState:
+        with self._lock:
+            # Check if we should transition from OPEN to HALF_OPEN
+            if self._state == CircuitState.OPEN:
+                if time.time() - self._last_failure_time >= self.config.timeout_seconds:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_calls = 0
+                    logger.info(f"Circuit breaker '{self.name}' transitioned to HALF_OPEN")
+            return self._state
+    
+    def can_execute(self) -> bool:
+        """Check if a request can be executed"""
+        state = self.state
+        if state == CircuitState.CLOSED:
+            return True
+        elif state == CircuitState.HALF_OPEN:
+            return self._half_open_calls < self.config.half_open_max_calls
+        else:  # OPEN
+            return False
+    
+    def record_success(self):
+        """Record a successful API call"""
+        with self._lock:
+            # FIX: Don't call self.state property here - it would cause deadlock
+            # since we already hold the lock. Instead, directly check the internal state.
+            # Check if we should transition from OPEN to HALF_OPEN (copy logic from state property)
+            if self._state == CircuitState.OPEN:
+                if time.time() - self._last_failure_time >= self.config.timeout_seconds:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_calls = 0
+                    logger.info(f"Circuit breaker '{self.name}' transitioned to HALF_OPEN")
+            
+            current_state = self._state
+            if current_state == CircuitState.HALF_OPEN:
+                self._success_count += 1
+                # Check if we should close the circuit BEFORE incrementing half_open_calls
+                if self._success_count >= self.config.success_threshold:
+                    self._state = CircuitState.CLOSED
+                    self._failure_count = 0
+                    self._success_count = 0
+                    self._half_open_calls = 0
+                    logger.info(f"Circuit breaker '{self.name}' closed after recovery")
+                else:
+                    self._half_open_calls += 1
+            elif self._state == CircuitState.CLOSED:
+                # Reset failure count on success
+                self._failure_count = 0
+    
+    def record_failure(self, error: str = None):
+        """Record a failed API call"""
+        with self._lock:
+            self._failure_count += 1
+            self._last_failure_time = time.time()
+            
+            if self._state == CircuitState.HALF_OPEN:
+                # Any failure in half-open goes back to open
+                self._state = CircuitState.OPEN
+                self._success_count = 0
+                self._half_open_calls = 0
+                logger.warning(f"Circuit breaker '{self.name}' reopened after failure in half-open")
+            elif self._state == CircuitState.CLOSED:
+                if self._failure_count >= self.config.failure_threshold:
+                    self._state = CircuitState.OPEN
+                    logger.warning(f"Circuit breaker '{self.name}' opened after {self._failure_count} failures")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get circuit breaker status"""
+        with self._lock:
+            # FIX: Don't call self.state property here - it would cause deadlock
+            # since we already hold the lock. Instead, directly access the internal state.
+            # Check if we should transition from OPEN to HALF_OPEN (copy logic from state property)
+            if self._state == CircuitState.OPEN:
+                if time.time() - self._last_failure_time >= self.config.timeout_seconds:
+                    self._state = CircuitState.HALF_OPEN
+                    self._half_open_calls = 0
+                    logger.info(f"Circuit breaker '{self.name}' transitioned to HALF_OPEN")
+            
+            return {
+                "name": self.name,
+                "state": self._state.value,
+                "failure_count": self._failure_count,
+                "success_count": self._success_count,
+                "last_failure_time": self._last_failure_time
+            }
+
+
+# Global circuit breaker instances
+_api_circuit_breaker = CircuitBreaker("aster_api", CircuitBreakerConfig(
+    failure_threshold=5,
+    success_threshold=2,
+    timeout_seconds=30.0
+))
+
+
+def reset_circuit_breaker():
+    """Reset the global circuit breaker to CLOSED state (for testing)"""
+    global _api_circuit_breaker
+    _api_circuit_breaker = CircuitBreaker("aster_api", CircuitBreakerConfig(
+        failure_threshold=5,
+        success_threshold=2,
+        timeout_seconds=30.0
+    ))
+
+
+def is_api_healthy() -> bool:
+    """Check if the API is healthy and can accept requests"""
+    return _api_circuit_breaker.can_execute()
+
+
+def get_api_health_status() -> Dict[str, Any]:
+    """Get detailed API health status"""
+    return {
+        "circuit_breaker": _api_circuit_breaker.get_status(),
+        "healthy": is_api_healthy()
+    }
+
+
+# =======================
+# Retry Logic with Exponential Backoff
+# =======================
+
+@dataclass
+class RetryConfig:
+    """Configuration for retry logic"""
+    max_retries: int = 3              # Maximum number of retries
+    base_delay_seconds: float = 0.5   # Base delay for exponential backoff
+    max_delay_seconds: float = 10.0   # Maximum delay cap
+    exponential_base: float = 2.0     # Multiplier for each retry
+    retry_on_errors: tuple = ("timeout", "connection", "HTTP 5", "HTTP 429", "rate limit")
+
+
+# Global retry config
+_retry_config = RetryConfig()
+
+
+def _calculate_backoff_delay(attempt: int) -> float:
+    """Calculate exponential backoff delay with jitter to avoid thundering herd"""
+    delay = _retry_config.base_delay_seconds * (_retry_config.exponential_base ** attempt)
+    # Add jitter: random value between 0.5x and 1.5x of the calculated delay
+    import random
+    jitter_factor = 0.5 + random.random()  # Range: 0.5 to 1.5
+    delay = delay * jitter_factor
+    return min(delay, _retry_config.max_delay_seconds)
+
+
+def _should_retry(error: str) -> bool:
+    """Determine if an error is retryable"""
+    if not error:
+        return False
+    error_lower = error.lower()
+    for retryable in _retry_config.retry_on_errors:
+        if retryable.lower() in error_lower:
+            return True
+    return False
+
+
+def set_retry_config(config: RetryConfig):
+    """Update retry configuration"""
+    global _retry_config
+    _retry_config = config
+
+
+# Decorator for retry logic
+def with_retry(func):
+    """Decorator that adds retry logic to API functions"""
+    def wrapper(*args, **kwargs):
+        last_error = None
+        for attempt in range(_retry_config.max_retries + 1):
+            try:
+                result = func(*args, **kwargs)
+                # Check if result contains an error
+                if isinstance(result, dict):
+                    error_msg = result.get("error", "")
+                    if error_msg and _should_retry(error_msg):
+                        last_error = error_msg
+                        if attempt < _retry_config.max_retries:
+                            delay = _calculate_backoff_delay(attempt)
+                            logger.warning(f"Retry {attempt + 1}/{_retry_config.max_retries} for {func.__name__} after error: {error_msg}, waiting {delay:.2f}s")
+                            time.sleep(delay)
+                            continue
+                        # Record failure after all retries exhausted
+                        _api_circuit_breaker.record_failure(error_msg)
+                        return result
+                # Success
+                return result
+            except Exception as e:
+                last_error = str(e)
+                if attempt < _retry_config.max_retries:
+                    delay = _calculate_backoff_delay(attempt)
+                    logger.warning(f"Retry {attempt + 1}/{_retry_config.max_retries} for {func.__name__} after exception: {e}, waiting {delay:.2f}s")
+                    time.sleep(delay)
+                else:
+                    _api_circuit_breaker.record_failure(last_error)
+                    raise
+        
+        # All retries exhausted
+        return {"error": f"All retries exhausted: {last_error}"}
+    return wrapper
+
+
+BASE_URL = "https://fapi.asterdex.com"
+
+# FIXED: Issue #5 - Implement connection pooling for better performance
+# Global httpx client with connection pooling
+_httpx_client: Optional[Any] = None
+
+def _get_httpx_client() -> Any:
+    """Get or create shared httpx client with connection pooling.
+    
+    FIX: Added timeout wrapper to prevent indefinite hangs on HTTP/2 responses.
+    HTTP/2 can hang on macOS when processing responses - this timeout ensures
+    requests don't block indefinitely.
+    """
+    global _httpx_client
+    if _httpx_client is None:
+        import httpx
+        _httpx_client = httpx.Client(
+            timeout=httpx.Timeout(10.0, connect=5.0, pool=5.0),  # Added pool timeout to prevent hangs
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+            http2=False  # FIX: Disable HTTP/2 - causes hangs on macOS. Use HTTP/1.1 instead.
+        )
+    return _httpx_client
+
+def close_httpx_client():
+    """Close the shared httpx client (call on shutdown)."""
+    global _httpx_client
+    if _httpx_client is not None:
+        _httpx_client.close()
+        _httpx_client = None
+
+
+# Load credentials from .env file
+API_KEY = os.getenv("ASTER_API_KEY", "")
+ASTER_USER = os.getenv("ASTER_USER", "")
+ASTER_SIGNER = os.getenv("ASTER_SIGNER", "")
+ASTER_PRIVATE_KEY = os.getenv("ASTER_PRIVATE_KEY", "")
+ASTER_API_SECRET = os.getenv("ASTER_API_SECRET", "")
+
+# Load from .env if file exists - check multiple locations
+# FIXED: Check all possible .env locations including the root project directory
+env_paths_to_try = [
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),  # skill directory
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),  # workspace directory
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env"),  # project root
+    "/Users/FIRMAS/.openclaw/.env",  # Absolute path to root .env
+]
+# Allow custom path via environment variable (for containerized deployments)
+if os.environ.get("ASTER_ENV_FILE"):
+    env_paths_to_try.insert(0, os.environ.get("ASTER_ENV_FILE"))
+
+for env_path in env_paths_to_try:
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    try:
+                        key, value = line.split("=", 1)
+                        os.environ.setdefault(key, value)
+                    except ValueError:
+                        pass
+
+# Re-load after reading .env
+API_KEY = os.getenv("ASTER_API_KEY", "")
+ASTER_USER = os.getenv("ASTER_USER", "")
+ASTER_SIGNER = os.getenv("ASTER_SIGNER", "")
+ASTER_PRIVATE_KEY = os.getenv("ASTER_PRIVATE_KEY", "")
+ASTER_API_SECRET = os.getenv("ASTER_API_SECRET", "")
+
+# Debug: Log loaded credentials (without revealing private key)
+logger.info(f"API_KEY loaded: {bool(API_KEY)}")
+logger.info(f"ASTER_USER loaded: {bool(ASTER_USER)}")
+logger.info(f"ASTER_SIGNER loaded: {bool(ASTER_SIGNER)}")
+logger.info(f"ASTER_PRIVATE_KEY loaded: {bool(ASTER_PRIVATE_KEY)}")
+
+# Nonce counter for microsecond timestamps
+_last_ms = 0
+_nonce_counter = 0
+
+# Rate limiting for API calls
+import time as time_module
+_rate_limit_last_call = 0
+_rate_limit_min_interval = RATE_LIMIT_MIN_INTERVAL  # Use constant
+
+def _rate_limit():
+    """Apply rate limiting to prevent 429 errors"""
+    global _rate_limit_last_call
+    now = time_module.time()
+    elapsed = now - _rate_limit_last_call
+    if elapsed < _rate_limit_min_interval:
+        time_module.sleep(_rate_limit_min_interval - elapsed)
+    _rate_limit_last_call = time_module.time()
+
+def _get_nonce() -> int:
+    """
+    Generate a unique nonce in microseconds.
+    This ensures each request has a unique timestamp.
+    """
+    global _last_ms, _nonce_counter
+    now_ms = int(time.time())
+    
+    if now_ms == _last_ms:
+        _nonce_counter += 1
+    else:
+        _last_ms = now_ms
+        _nonce_counter = 0
+    
+    return now_ms * 1_000_000 + _nonce_counter
+
+
+# =======================
+# Request Validation Functions
+# =======================
+
+# Valid symbol pattern: uppercase letters followed byUSDT, e.g., BTCUSDT, ETHUSDT
+_VALID_SYMBOL_PATTERN = re.compile(r'^[A-Z]+USDT$')
+
+# Valid interval pattern for klines
+_VALID_INTERVAL_PATTERN = re.compile(r'^[1-9][0-9]*[mhdwMHDW]$')
+
+# Valid endpoints whitelist
+_VALID_ENDPOINTS = frozenset([
+    '/api/v3/account',
+    '/api/v3/balance',
+    '/api/v3/order',
+    '/api/v3/allOrders',
+    '/api/v3/openOrders',
+    '/api/v3/myTrades',
+    '/api/v3/ticker/price',
+    '/api/v3/ticker/bookTicker',
+    '/api/v3/klines',
+    '/api/v3/depth',
+    '/fapi/v1/balance',
+    '/fapi/v1/account',
+    '/fapi/v1/order',
+    '/fapi/v1/allOrders',
+    '/fapi/v1/openOrders',
+    '/fapi/v1/userTrades',
+    '/fapi/v1/positionRisk',
+])
+
+
+def _validate_symbol(symbol: str) -> None:
+    """
+    Validate trading symbol format.
+    
+    Args:
+        symbol: Trading pair symbol (e.g., 'BTCUSDT')
+        
+    Raises:
+        ValueError: If symbol format is invalid
+    """
+    if not symbol:
+        raise ValueError("Symbol cannot be empty")
+    
+    if not isinstance(symbol, str):
+        raise ValueError(f"Symbol must be a string, got {type(symbol).__name__}")
+    
+    symbol = symbol.upper().strip()
+    
+    if not _VALID_SYMBOL_PATTERN.match(symbol):
+        raise ValueError(
+            f"Invalid symbol format: '{symbol}'. "
+            "Expected format like 'BTCUSDT', 'ETHUSDT', etc."
+        )
+
+
+def _validate_interval(interval: str) -> None:
+    """
+    Validate kline interval format.
+    
+    Args:
+        interval: Time interval (e.g., '1m', '5m', '1h', '1d')
+        
+    Raises:
+        ValueError: If interval format is invalid
+    """
+    if not interval:
+        raise ValueError("Interval cannot be empty")
+    
+    if not isinstance(interval, str):
+        raise ValueError(f"Interval must be a string, got {type(interval).__name__}")
+    
+    interval = interval.strip().lower()
+    
+    if not _VALID_INTERVAL_PATTERN.match(interval):
+        raise ValueError(
+            f"Invalid interval format: '{interval}'. "
+            "Expected format like '1m', '5m', '1h', '1d', etc."
+        )
+
+
+def _validate_quantity(quantity: float, min_qty: float = 0.001, max_qty: float = 1000000.0) -> None:
+    """
+    Validate order quantity.
+    
+    Args:
+        quantity: Order quantity
+        min_qty: Minimum allowed quantity (default: 0.001)
+        max_qty: Maximum allowed quantity (default: 1000000.0)
+        
+    Raises:
+        ValueError: If quantity is invalid
+    """
+    if not isinstance(quantity, (int, float)):
+        raise ValueError(f"Quantity must be a number, got {type(quantity).__name__}")
+    
+    if quantity <= 0:
+        raise ValueError(f"Quantity must be positive, got {quantity}")
+    
+    if quantity < min_qty:
+        raise ValueError(f"Quantity {quantity} is below minimum {min_qty}")
+    
+    if quantity > max_qty:
+        raise ValueError(f"Quantity {quantity} exceeds maximum {max_qty}")
+
+
+def _validate_endpoint(path: str) -> None:
+    """
+    Validate API endpoint path.
+    
+    Args:
+        path: API endpoint path
+        
+    Raises:
+        ValueError: If endpoint is not in whitelist
+    """
+    if not path:
+        raise ValueError("Endpoint path cannot be empty")
+    
+    if not isinstance(path, str):
+        raise ValueError(f"Endpoint must be a string, got {type(path).__name__}")
+    
+    # Extract path without query parameters
+    path_clean = path.split('?')[0]
+    
+    if path_clean not in _VALID_ENDPOINTS:
+        # Log warning for unknown endpoints but don't block (flexibility)
+        logger.warning(f"Unknown API endpoint: {path_clean}")
+
+
+def _validate_leverage(leverage: int) -> None:
+    """
+    Validate leverage value.
+    
+    Args:
+        leverage: Leverage value (e.g., 1, 10, 50, 125)
+        
+    Raises:
+        ValueError: If leverage is invalid
+    """
+    if not isinstance(leverage, int):
+        raise ValueError(f"Leverage must be an integer, got {type(leverage).__name__}")
+    
+    if leverage < 1 or leverage > 125:
+        raise ValueError(f"Leverage must be between 1 and 125, got {leverage}")
+
+
+def _sign_params(params: Dict[str, Any]) -> str:
+    """
+    Create signature for Aster DEX API using HMAC-SHA256.
+    
+    Aster DEX uses HMAC-SHA256 authentication (like Binance).
+    """
+    global ASTER_API_SECRET
+    
+    # Try to load API secret from environment if not already loaded
+    # Use environment variable for configurable path (no hardcoded paths)
+    if not ASTER_API_SECRET:
+        # First check environment variable for custom path
+        env_config_path = os.environ.get("ASTER_ENV_FILE")
+        possible_paths = []
+        
+        if env_config_path:
+            possible_paths.append(env_config_path)
+        
+        # Then try relative paths (works across deployments) - include absolute path to root .env
+        possible_paths.extend([
+            "/Users/FIRMAS/.openclaw/.env",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
+        ])
+        for env_path in possible_paths:
+            if os.path.exists(env_path):
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "ASTER_API_SECRET" in line:
+                            try:
+                                _, value = line.split("=", 1)
+                                ASTER_API_SECRET = value.strip()
+                                logger.info(f"Loaded ASTER_API_SECRET from {env_path}")
+                                break
+                            except ValueError:
+                                pass
+                if ASTER_API_SECRET:
+                    break
+    
+    if not ASTER_API_SECRET:
+        logger.error("ASTER_API_SECRET not set - signature will be empty!")
+        return ""
+    
+    try:
+        import hmac
+        import hashlib
+        
+        # Build the query string from params (sorted by key, excluding signature)
+        items = [f"{k}={params[k]}" for k in sorted(params.keys()) if k != "signature"]
+        query_string = "&".join(items)
+        
+        # Generate HMAC-SHA256 signature
+        signature = hmac.new(
+            ASTER_API_SECRET.encode("utf-8"),
+            query_string.encode("utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+        
+        return signature
+        
+    except Exception as e:
+        logger.error(f"Error signing params: {e}")
+        return ""
+
+
+def _is_circuit_breaker_error(status_code: int) -> bool:
+    """
+    Determine if an HTTP error should count towards circuit breaker.
+    Only server errors (5xx) should open the circuit.
+    Client errors (4xx except 429) should NOT open the circuit.
+    """
+    if status_code >= 500:
+        return True  # Server errors - count towards circuit breaker
+    if status_code == 429:
+        return False  # Rate limit - retry but don't count
+    if status_code >= 400:
+        return False  # Client errors (400, 401, 403, 404, etc.) - don't count
+    return False
+
+
+def _handle_http_error(status_code: int, response_text: str = "") -> Dict[str, Any]:
+    """
+    Handle HTTP errors appropriately.
+    Returns dict with error message and whether to retry.
+    """
+    error_msg = f"HTTP {status_code}"
+    
+    if status_code == 429:
+        # Rate limit - extract retry-after if present
+        retry_after = RETRY_AFTER_DEFAULT  # Use constant
+        try:
+            # Try to parse retry-after from response
+            import re
+            match = re.search(r'retry[- ]?after["\s:]+(\d+)', response_text.lower())
+            if match:
+                retry_after = int(match.group(1))
+        except Exception:
+            pass
+        return {
+            "error": f"HTTP 429 Rate Limited - retry after {retry_after}s",
+            "retryable": True,
+            "retry_after": retry_after
+        }
+    elif status_code >= 500:
+        return {"error": error_msg, "retryable": True}
+    elif status_code >= 400:
+        # Client errors - don't retry 400, 401, 403, 404
+        return {"error": error_msg, "retryable": False}
+    else:
+        return {"error": error_msg, "retryable": False}
+
+
+def _make_signed_request(method: str, path: str, params: Dict[str, Any] | None = None) -> Any:
+    """
+    Internal helper for making signed API requests.
+    Reduces code duplication across signed_get, signed_post, signed_delete.
+    """
+    # Check circuit breaker before making request
+    if not is_api_healthy():
+        logger.warning(f"Circuit breaker OPEN - rejecting request to {path}")
+        return {"error": "Circuit breaker open - API unhealthy"}
+
+    _rate_limit()  # Apply rate limiting
+    client = _get_httpx_client()
+    p = dict(params or {})
+    now_ms = _get_nonce()  # Use microseconds for nonce
+
+    # Add authentication params
+    p.setdefault("timestamp", int(time.time() * 1000))  # Timestamp in milliseconds
+    p.setdefault("recvWindow", DEFAULT_RECV_WINDOW)
+    p.setdefault("nonce", now_ms)  # Nonce in microseconds
+    if ASTER_USER:
+        p.setdefault("user", ASTER_USER)
+    if ASTER_SIGNER:
+        p.setdefault("signer", ASTER_SIGNER)
+
+    # Generate ECDSA signature
+    p["signature"] = _sign_params(p)
+
+    query_string = "&".join([f"{k}={v}" for k, v in sorted(p.items())])
+    url = BASE_URL + path + "?" + query_string
+    headers = {"X-MBX-APIKEY": API_KEY} if API_KEY else {}
+
+    try:
+        resp = client.request(method, url, headers=headers)  # Use pooled client
+        if resp.status_code >= 400:
+            # Handle error with proper logic - include response text for debugging
+            error_info = _handle_http_error(resp.status_code, resp.text)
+            
+            # Log the actual API error message for debugging
+            try:
+                error_data = resp.json()
+                if isinstance(error_data, dict) and "message" in error_data:
+                    error_msg = f"HTTP {resp.status_code}: {error_data.get('message', resp.text[:200])}"
+                elif isinstance(error_data, dict) and "msg" in error_data:
+                    error_msg = f"HTTP {resp.status_code}: {error_data.get('msg', resp.text[:200])}"
+                else:
+                    error_msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
+            except:
+                error_msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
+            
+            logger.warning(f"API error response: {error_msg}")
+
+            # Only count server errors towards circuit breaker, not client errors
+            if _is_circuit_breaker_error(resp.status_code):
+                _api_circuit_breaker.record_failure(error_info["error"])
+            else:
+                logger.warning(f"API error (not counting towards circuit breaker): {error_info['error']}")
+
+            return {"error": error_msg}
+        _api_circuit_breaker.record_success()
+        return resp.json()
+    except Exception as e:
+        _api_circuit_breaker.record_failure(str(e))
+        logger.exception(f"API request failed: {path}")  # Full stack trace for debugging
+        return {"error": str(e)}
+
+
+def _make_public_request(method: str, path: str, params: Dict[str, Any] | None = None) -> Any:
+    """
+    Internal helper for making public (unauthenticated) API requests.
+    Reduces code duplication across public_get.
+    """
+    # Check circuit breaker before making request
+    if not is_api_healthy():
+        logger.warning(f"Circuit breaker OPEN - rejecting request to {path}")
+        return {"error": "Circuit breaker open - API unhealthy"}
+
+    _rate_limit()  # Apply rate limiting
+    client = _get_httpx_client()
+    url = BASE_URL + path
+    try:
+        resp = client.request(method, url, params=params or {})  # Use pooled client
+        if resp.status_code >= 400:
+            # Handle error with proper logic
+            error_info = _handle_http_error(resp.status_code, resp.text)
+
+            # Only count server errors towards circuit breaker, not client errors
+            if _is_circuit_breaker_error(resp.status_code):
+                _api_circuit_breaker.record_failure(error_info["error"])
+            else:
+                logger.warning(f"API error (not counting towards circuit breaker): {error_info['error']}")
+
+            return {"error": error_info["error"]}
+        _api_circuit_breaker.record_success()
+        return resp.json()
+    except Exception as e:
+        _api_circuit_breaker.record_failure(str(e))
+        logger.exception(f"API request failed: {path}")  # Full stack trace for debugging
+        return {"error": str(e)}
+
+
+@with_retry
+def signed_get(path: str, params: Dict[str, Any] | None = None) -> Any:
+    """Makes a signed GET request to the API."""
+    return _make_signed_request("GET", path, params)
+
+
+@with_retry
+def signed_post(path: str, params: Dict[str, Any] | None = None) -> Any:
+    """Makes a signed POST request to the API."""
+    return _make_signed_request("POST", path, params)
+
+
+@with_retry
+def signed_delete(path: str, params: Dict[str, Any] | None = None) -> Any:
+    """Makes a signed DELETE request to the API."""
+    return _make_signed_request("DELETE", path, params)
+
+
+@with_retry
+def public_get(path: str, params: Dict[str, Any] | None = None) -> Any:
+    """Makes a public (unauthenticated) GET request to the API."""
+    return _make_public_request("GET", path, params)
+
+
+def get_klines(symbol: str, interval: str = "1m", limit: int = DEFAULT_KLINES_LIMIT) -> List[Dict]:
+    """Obtiene klines históricos"""
+    # Input validation - fail fast with clear errors
+    _validate_symbol(symbol)
+    _validate_interval(interval)
+    if limit < 1 or limit > 1500:
+        raise ValueError(f"Limit must be between 1 and 1500, got {limit}")
+    
+    data = public_get("/fapi/v1/klines", {"symbol": symbol, "interval": interval, "limit": limit})
+    if isinstance(data, dict) and "error" in data:
+        return []
+    result = []
+    for k in data:
+        result.append({
+            "open_time": k[0],
+            "open": float(k[1]),
+            "high": float(k[2]),
+            "low": float(k[3]),
+            "close": float(k[4]),
+            "volume": float(k[5]),
+            "close_time": k[6]
+        })
+    return result
+
+
+def get_exchange_info() -> Dict[str, Any]:
+    return public_get("/fapi/v1/exchangeInfo", {})
+
+
+def get_balance_v3() -> List[Dict[str, Any]]:
+    return signed_get("/fapi/v1/balance", {})
+
+
+def get_positions_v3(symbols: List[str] | None = None) -> List[Dict[str, Any]]:
+    """Get positions, optionally filtered by symbols.
+    
+    Args:
+        symbols: Optional list of symbols to filter. If None, returns all positions.
+    """
+    all_positions = signed_get("/fapi/v2/positionRisk", {})
+    
+    if isinstance(all_positions, dict) and "error" in all_positions:
+        return []
+    
+    if symbols is None:
+        return all_positions
+    
+    # Filter by requested symbols
+    symbols_upper = [s.upper() for s in symbols]
+    return [p for p in all_positions if p.get("symbol", "").upper() in symbols_upper]
+
+
+def set_leverage(symbol: str, leverage: int) -> Any:
+    # Input validation - fail fast with clear errors
+    _validate_symbol(symbol)
+    _validate_leverage(leverage)
+    return signed_post("/fapi/v1/leverage", {
+        "symbol": symbol,
+        "leverage": leverage
+    })
+
+
+def place_order(params: Dict[str, Any]) -> Any:
+    return signed_post("/fapi/v1/order", params)
+
+
+def place_batch_orders(batch_orders: List[Dict[str, Any]]) -> Any:
+    return signed_post("/fapi/v1/batchOrders", {
+        "batchOrders": batch_orders
+    })
+
+
+def get_open_orders(symbol: str | None = None) -> Any:
+    params: Dict[str, Any] = {}
+    if symbol:
+        params["symbol"] = symbol
+    return signed_get("/fapi/v1/openOrders", params)
+
+
+def cancel_all_open_orders(symbol: str) -> Any:
+    return signed_delete("/fapi/v1/allOpenOrders", {"symbol": symbol})
+
+
+def get_all_orders_v3(symbol: str) -> Any:
+    return signed_get("/fapi/v1/allOrders", {"symbol": symbol})
+
+
+def cancel_order(symbol: str, order_id: int) -> Any:
+    """
+    Cancela una orden individual:
+    DELETE /fapi/v1/order (symbol + orderId).
+    """
+    return signed_delete("/fapi/v1/order", {"symbol": symbol, "orderId": order_id})
+
+
+# NEW: Get account trades from exchange for real trade history
+def get_account_trades(symbol: str | None = None, limit: int = DEFAULT_TRADES_LIMIT, from_id: int | None = None) -> List[Dict[str, Any]]:
+    """
+    Fetch account trades from exchange API.
+    This is the "source of truth" for trade history.
+    
+    Args:
+        symbol: Optional symbol to filter trades
+        limit: Number of trades to retrieve (default 100)
+        from_id: Trade ID to start from (for incremental fetching)
+    
+    Returns:
+        List of trade objects from the exchange
+    """
+    params: Dict[str, Any] = {"limit": limit}
+    if symbol:
+        params["symbol"] = symbol
+    if from_id is not None:
+        params["fromId"] = from_id
+    
+    # Use the account trade endpoint
+    return signed_get("/fapi/v1/accountTrades", params)
+
+
+def get_last_trade_time_from_exchange(symbol: str | None = None) -> int:
+    """
+    Get the timestamp of the last trade from the exchange.
+    This provides real-time accurate cooldown timing.
+    
+    Args:
+        symbol: Optional symbol to check. If None, checks all symbols.
+    
+    Returns:
+        Unix timestamp in milliseconds of the last trade, or 0 if no trades
+    """
+    try:
+        trades = get_account_trades(symbol=symbol, limit=1)
+        if isinstance(trades, list) and len(trades) > 0:
+            # The most recent trade is first
+            last_trade = trades[0]
+            # Trade time is typically in 'time' or 'tradeTime' field (milliseconds)
+            return int(last_trade.get("time", last_trade.get("tradeTime", 0)))
+        return 0
+    except Exception as e:
+        print(f"Error fetching last trade from exchange: {e}")
+        return 0
+
+
+# en aster_api.py o account_info.py
+
+
+def get_equity_total_usdt() -> float:
+    """
+    Get total equity in USDT - combines spot + perpetual futures balances.
+    
+    Note: Aster DEX has both spot and perpetual futures accounts.
+    - Spot balance from /api/v3/account
+    - Perpetual futures balance from /fapi/v1/balance
+    """
+    # === FUTURES BALANCE (Perpetual) ===
+    futures_balance = 0.0
+    try:
+        balances = get_balance_v3()
+        positions = get_positions_v3()
+        
+        # Get USDT balance from futures
+        for b in balances:
+            if str(b.get("asset")).upper() == "USDT":
+                # Try various field names that Aster DEX might return
+                val = (
+                    b.get("balance") or 
+                    b.get("walletBalance") or 
+                    b.get("crossWalletBalance") or
+                    b.get("availableBalance") or
+                    b.get("free") or
+                    b.get("locked")
+                )
+                if val:
+                    try:
+                        futures_balance = float(val)
+                    except (ValueError, TypeError):
+                        futures_balance = 0.0
+                break
+        
+        # Add unrealized PnL from open positions
+        unrealized_pnl = 0.0
+        for p in positions:
+            amt = p.get("positionAmt")
+            if amt and float(amt) != 0.0:
+                upnl = p.get("unRealizedProfit")
+                if upnl:
+                    try:
+                        unrealized_pnl += float(upnl)
+                    except (ValueError, TypeError):
+                        pass
+        
+        futures_balance += unrealized_pnl
+    except Exception as e:
+        logger.warning(f"Error fetching futures balance: {e}")
+    
+    # === SPOT BALANCE ===
+    spot_balance = 0.0
+    try:
+        # Try to get spot balance from account endpoint
+        spot_data = _make_signed_request("GET", "/api/v3/account", {})
+        # Check if response is valid (not an error dict and not 404)
+        if spot_data and isinstance(spot_data, dict) and "balances" in spot_data:
+            # Try balances array
+            balances = spot_data.get("balances", [])
+            for bal in balances:
+                if str(bal.get("asset", "")).upper() == "USDT":
+                    free = bal.get("free", "0")
+                    locked = bal.get("locked", "0")
+                    try:
+                        spot_balance = float(free) + float(locked)
+                    except (ValueError, TypeError):
+                        spot_balance = 0.0
+                    break
+        else:
+            # Endpoint returned 404 or error - just use futures balance only
+            logger.info("Spot account endpoint unavailable, using futures balance only")
+    except Exception as e:
+        logger.warning(f"Error fetching spot balance: {e}")
+    
+    # Total equity = spot + futures
+    total_equity = spot_balance + futures_balance
+    return total_equity
+
+
+def get_mark_price(symbol: str) -> float:
+    """Get current mark price for a symbol"""
+    data = public_get("/fapi/v1/premiumIndex", {"symbol": symbol})
+    if isinstance(data, dict) and "error" in data:
+        return 0.0
+    try:
+        return float(data.get("markPrice", 0))
+    except Exception:
+        return 0.0
+
+
+def get_current_price(symbol: str) -> float:
+    """Get current last price from ticker"""
+    data = public_get("/fapi/v1/ticker/price", {"symbol": symbol})
+    if isinstance(data, dict) and "error" in data:
+        return 0.0
+    try:
+        return float(data.get("price", 0))
+    except Exception:
+        return 0.0
