@@ -39,7 +39,7 @@
       "name": "HB Trading 30m",
       "enabled": true,
       "createdAtMs": 1771706400000,
-      "updatedAtMs": 1772493106970,
+      "updatedAtMs": 1772493646605,
       "schedule": {
         "kind": "cron",
         "expr": "*/30 * * * *",
@@ -57,11 +57,11 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772494200000,
-        "lastRunAtMs": 1772493106637,
+        "nextRunAtMs": 1772497246605,
+        "lastRunAtMs": 1772493646277,
         "lastStatus": "error",
-        "lastDurationMs": 333,
-        "consecutiveErrors": 4,
+        "lastDurationMs": 328,
+        "consecutiveErrors": 6,
         "lastError": "Unsupported channel: telegram"
       }
     },

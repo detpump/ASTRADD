@@ -347,7 +347,12 @@ def _load_risk_from_db():
     """Load risk data from database"""
     try:
         import sys
-        src_dir = str(BASE_DIR / 'src')
+        # Add workspace/skills/aster-trading to path for dashboard imports
+        project_root = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading'
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        # Add src subdirectory
+        src_dir = project_root + '/src'
         if src_dir not in sys.path:
             sys.path.insert(0, src_dir)
         from state.state_service import state_service
@@ -360,7 +365,9 @@ def _load_risk_from_db():
                 'risk_limits': risk.risk_limits or {}
             }
     except Exception as e:
+        import traceback
         print(f"Error loading risk from DB: {e}")
+        traceback.print_exc()
     return {}
 
 
