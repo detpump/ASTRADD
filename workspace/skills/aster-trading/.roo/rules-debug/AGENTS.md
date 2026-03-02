@@ -1,5 +1,0 @@
-# Debug Mode Guidance
-- API mocking lives in [`tests/mocks/mock_api_server.py`](workspace/skills/aster-trading/tests/mocks/mock_api_server.py:1). Integration suites assume it’s running on `localhost:8899`; without it they hang waiting for real endpoints. Always start the mock server (`python -m tests.mocks.mock_api_server`) before running failing tests.
-- RiskGuard state is persisted to `logs/risk_state.json`; inspecting `v2_state.json` alone gives incomplete context (no drawdown or trade counters). When debugging risk gating, diff both files and refresh with `RiskGuard.sync_with_exchange()` to avoid chasing stale data.
-- Self-heal logs go to the standard logger, not a dedicated file. To trace a missing SL/TP, enable DEBUG logging (set `LOG_LEVEL=DEBUG` in `.env`) and watch for “SELF-HEAL” entries—it’s the only way to know why a bracket was skipped.
-- Tests expect to run from repo root; if you launch pytest elsewhere fixtures such as `TestSuite` (referenced in `tests/test_trade_execution_suite.py`) are not discovered, producing misleading “fixture not found” errors. Always `cd workspace/skills/aster-trading` first.
