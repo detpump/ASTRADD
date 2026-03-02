@@ -119,6 +119,7 @@ class SyncEngine:
         except Exception as e:
             logger.exception(f"Sync failed: {e}")
             result.errors.append(str(e))
+            result.status = 'FAILED'
             self._fail_batch(batch_id, str(e))
         
         result.completed_at = int(time.time() * 1000)

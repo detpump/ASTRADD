@@ -70,11 +70,11 @@ class RetryWorker:
             logger.info(f"Found {len(errors)} pending events to retry")
             
             for error in errors:
-                error_id, event_id, event_type, position_uuid, error_msg = error
+                error_id, event_id, event_type, position_uuid, error_msg = error[:5]
                 
                 try:
                     # Re-fetch event from events table
-                    cur.execute("SELECT * FROM events WHERE id = ?", (event_id,))
+                    cur.execute("SELECT id, event_id, event_type, position_uuid, error_message, retry_count FROM event_processing_errors WHERE id = ?", (event_id,))
                     event_row = cur.fetchone()
                     
                     if not event_row:
