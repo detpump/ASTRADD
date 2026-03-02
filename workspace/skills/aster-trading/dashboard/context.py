@@ -10,7 +10,13 @@ import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
+
+if TYPE_CHECKING:
+    from services.risk_service import get_normalized_risk_config
+    from state.dashboard_cache import load_dashboard_snapshot
+    from state.state_service import state_service
+    from state.models import SystemState
 
 # Base paths shared with dashboard server - MUST be set before other imports
 BASE_DIR = Path(__file__).resolve().parent.parent
