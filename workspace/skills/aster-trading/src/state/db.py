@@ -31,6 +31,50 @@ def _ensure_dir(path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
 
+def _ensure_column(cur: sqlite3.Cursor, table: str, column: str, definition: str) -> None:
+    cur.execute(f"PRAGMA table_info({table})")
+    columns = {row[1] for row in cur.fetchall()}
+    if column not in columns:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+
+
+def _ensure_sync_batches_status(cur: sqlite3.Cursor) -> None:
+    cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='sync_batches'")
+    row = cur.fetchone()
+    if not row or "PARTIAL" in (row[0] or ""):
+        return
+
+    cur.execute("ALTER TABLE sync_batches RENAME TO sync_batches_old")
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sync_batches (
+            batch_id TEXT PRIMARY KEY,
+            started_at INTEGER NOT NULL,
+            completed_at INTEGER,
+            status TEXT CHECK(status IN ('IN_PROGRESS', 'COMPLETED', 'FAILED', 'PARTIAL')) DEFAULT 'IN_PROGRESS',
+            positions_count INTEGER DEFAULT 0,
+            orders_count INTEGER DEFAULT 0,
+            account_equity REAL,
+            error_msg TEXT,
+            metadata_json TEXT,
+            created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+        )
+        """
+    )
+    cur.execute(
+        """
+        INSERT INTO sync_batches (
+            batch_id, started_at, completed_at, status, positions_count,
+            orders_count, account_equity, error_msg, metadata_json, created_at
+        )
+        SELECT batch_id, started_at, completed_at, status, positions_count,
+            orders_count, account_equity, error_msg, metadata_json, created_at
+        FROM sync_batches_old
+        """
+    )
+    cur.execute("DROP TABLE sync_batches_old")
+
+
 def _init_schema(conn: sqlite3.Connection) -> None:
     cur = conn.cursor()
 
@@ -53,6 +97,9 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    _ensure_column(cur, "positions", "position_uuid", "position_uuid TEXT")
+    _ensure_column(cur, "positions", "scale_in_pending", "scale_in_pending INTEGER DEFAULT 0 CHECK(scale_in_pending IN (0, 1))")
+    _ensure_column(cur, "positions", "scale_in_timestamp", "scale_in_timestamp INTEGER")
 
     # Orders (active + historical) — event sourced
     cur.execute(
@@ -441,6 +488,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    _ensure_column(cur, "event_processing_errors", "error_message", "error_message TEXT NOT NULL")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_event_errors_status ON event_processing_errors(status, retry_count)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_event_errors_event ON event_processing_errors(event_id)")
 
@@ -647,7 +695,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             batch_id TEXT PRIMARY KEY,
             started_at INTEGER NOT NULL,
             completed_at INTEGER,
-            status TEXT CHECK(status IN ('IN_PROGRESS', 'COMPLETED', 'FAILED')) DEFAULT 'IN_PROGRESS',
+            status TEXT CHECK(status IN ('IN_PROGRESS', 'COMPLETED', 'FAILED', 'PARTIAL')) DEFAULT 'IN_PROGRESS',
             positions_count INTEGER DEFAULT 0,
             orders_count INTEGER DEFAULT 0,
             account_equity REAL,
@@ -658,6 +706,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         """
     )
     cur.execute("CREATE INDEX IF NOT EXISTS idx_sync_batches_status ON sync_batches(status, started_at)")
+    _ensure_sync_batches_status(cur)
 
     # Funding rates (for scale-in eligibility checks)
     cur.execute(
