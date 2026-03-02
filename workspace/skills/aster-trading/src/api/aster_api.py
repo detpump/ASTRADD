@@ -870,6 +870,32 @@ def cancel_order(symbol: str, order_id: int) -> Any:
     return signed_delete("/fapi/v1/order", {"symbol": symbol, "orderId": order_id})
 
 
+def get_funding_rate(symbol: str) -> float:
+    """
+    Get funding rate for a symbol.
+    
+    Args:
+        symbol: Trading symbol (e.g., 'BTCUSDT')
+    
+    Returns:
+        Funding rate as a float. Returns 0.0 if unavailable.
+        Negative funding means we're paying to hold the position.
+    """
+    try:
+        result = public_get("/fapi/v1/fundingRate", {
+            "symbol": symbol,
+            "limit": 1
+        })
+        
+        if result and len(result) > 0:
+            return float(result[0].get("fundingRate", 0))
+        return 0.0
+        
+    except Exception as e:
+        logger.warning(f"Could not get funding rate for {symbol}: {e}")
+        return 0.0
+
+
 # NEW: Get account trades from exchange for real trade history
 def get_account_trades(symbol: str | None = None, limit: int = DEFAULT_TRADES_LIMIT, from_id: int | None = None) -> List[Dict[str, Any]]:
     """
