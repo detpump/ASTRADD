@@ -119,9 +119,9 @@ class TestSyncCycle:
     # Batch Lifecycle Tests
     # =========================================================================
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_creates_batch(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync creates a batch record."""
         mock_positions.return_value = []
@@ -135,9 +135,9 @@ class TestSyncCycle:
         assert result.started_at > 0
         assert result.completed_at >= result.started_at
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_batch_status_values(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test batch status is one of valid values."""
         mock_positions.return_value = []
@@ -148,9 +148,9 @@ class TestSyncCycle:
         
         assert result.status in ['COMPLETED', 'PARTIAL', 'FAILED']
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_records_positions(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync records fetched positions."""
         mock_positions.return_value = [
@@ -164,9 +164,9 @@ class TestSyncCycle:
         # Should count positions
         assert result.positions_fetched >= 0
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_records_orders(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync records fetched orders."""
         mock_positions.return_value = []
@@ -184,9 +184,9 @@ class TestSyncCycle:
     # Data Persistence Tests
     # =========================================================================
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_persists_raw_positions(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync persists raw position snapshots."""
         mock_positions.return_value = [
@@ -200,9 +200,9 @@ class TestSyncCycle:
         # Verify positions were fetched
         assert result.positions_fetched >= 0
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_handles_api_errors_gracefully(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync handles API errors gracefully."""
         mock_positions.side_effect = Exception("API Error")
@@ -286,9 +286,9 @@ class TestSyncCycle:
     # Integration with Change Detector
     # =========================================================================
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_sync_emits_events(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test that sync emits events for changes."""
         mock_positions.return_value = []
@@ -304,9 +304,9 @@ class TestSyncCycle:
     # Multiple Sync Cycles
     # =========================================================================
     
-    @patch('api.aster_api.get_positions_v3')
-    @patch('api.aster_api.get_open_orders')
-    @patch('api.aster_api.get_balance_v3')
+    @patch('src.api.aster_api.get_positions_v3')
+    @patch('src.api.aster_api.get_open_orders')
+    @patch('src.api.aster_api.get_balance_v3')
     def test_multiple_sync_cycles(self, mock_balance, mock_orders, mock_positions, sync_engine):
         """Test running multiple sync cycles."""
         mock_positions.return_value = []
