@@ -124,6 +124,47 @@ def insert_order(o: Order) -> int:
         return cur.lastrowid
 
 
+def upsert_order(o: Order) -> None:
+    """Insert or update an order."""
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO orders (
+                order_id, client_order_id, symbol, side, type, status, price,
+                quantity, executed_qty, avg_price, reduce_only, time_in_force,
+                position_side, update_time, cycle_id, bracket_label, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(order_id) DO UPDATE SET
+                status=excluded.status,
+                executed_qty=excluded.executed_qty,
+                avg_price=excluded.avg_price,
+                update_time=excluded.update_time,
+                metadata=excluded.metadata
+            """,
+            (
+                o.order_id,
+                o.client_order_id,
+                o.symbol,
+                o.side,
+                o.type,
+                o.status,
+                o.price,
+                o.quantity,
+                o.executed_qty,
+                o.avg_price,
+                int(o.reduce_only) if o.reduce_only is not None else None,
+                o.time_in_force,
+                o.position_side,
+                o.update_time,
+                o.cycle_id,
+                o.bracket_label,
+                json.dumps(o.metadata) if o.metadata else None,
+            ),
+        )
+        conn.commit()
+
+
 def get_orders(active_only: bool = True, limit: int = 200) -> List[Order]:
     """Fetch orders from DB (active_only filters to NEW/PARTIALLY_FILLED/PENDING)."""
     status_filter = ("NEW", "PARTIALLY_FILLED", "PENDING") if active_only else None

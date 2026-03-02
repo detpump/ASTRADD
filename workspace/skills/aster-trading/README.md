@@ -258,6 +258,92 @@ print(hc.check_system_health())
 "
 ```
 
+## V3 Data Architecture
+
+### Overview
+
+The V3 data architecture implements a 4-layer data model:
+
+1. **Layer 1: Raw Snapshots** - Immutable API responses preserved for forensic analysis
+2. **Layer 2: Event Log** - Immutable event store for replay and audit
+3. **Layer 3: Operational State** - Canonical runtime state for trading decisions
+4. **Layer 4: Risk & Observability** - System health monitoring and risk tracking
+
+### Key Components
+
+#### SyncEngine
+
+The [`SyncEngine`](src/sync/sync_engine.py) coordinates data fetching, change detection, event emission, and state projection.
+
+```python
+from src.sync.sync_engine import SyncEngine
+
+engine = SyncEngine()
+result = engine.sync()
+
+print(f"Batch: {result.batch_id}, Status: {result.status}")
+```
+
+#### ConflictResolver
+
+The [`ConflictResolver`](src/sync/conflict_resolver.py) handles conflicts between real-time WebSocket events and batch sync data.
+
+```python
+from src.sync.conflict_resolver import ConflictResolver
+
+resolver = ConflictResolver()
+resolved, source, anomaly = resolver.resolve_with_anomaly_check(ws_pos, batch_pos)
+```
+
+#### FundingRateFetcher
+
+The [`FundingRateFetcher`](src/sync/funding_rate_fetcher.py) fetches and caches funding rates from the exchange.
+
+```python
+from src.sync.funding_rate_fetcher import FundingRateFetcher
+
+fetcher = FundingRateFetcher()
+rate = fetcher.get_latest_rate("BTCUSDT")
+cost = fetcher.calculate_funding_cost("BTCUSDT", 1.0, "LONG")
+```
+
+#### RetryWorker
+
+The [`RetryWorker`](src/sync/retry_worker.py) processes failed event projections from the dead-letter queue.
+
+```python
+from src.sync.retry_worker import RetryWorker
+
+worker = RetryWorker()
+processed = worker.process_pending()
+stats = worker.get_error_stats()
+```
+
+### Projectors
+
+Projectors transform events into operational state:
+
+- [`PositionProjector`](src/sync/projectors/position_projector.py) - Projects position events
+- [`OrderProjector`](src/sync/projectors/order_projector.py) - Projects order events
+- [`BracketProjector`](src/sync/projectors/bracket_projector.py) - Projects bracket (SL/TP) events
+
+### Database Schema
+
+See [V3_SCHEMA.md](docs/V3_SCHEMA.md) for complete table definitions.
+
+### Testing
+
+```bash
+# Run all tests
+python3 -m pytest tests/ -v
+
+# Run unit tests only
+python3 -m pytest tests/unit/ -v
+
+# Run integration tests only
+python3 -m pytest tests/integration/ -v
+```
+
 ## Deployment
 
 ### Environment-Specific Configuration
