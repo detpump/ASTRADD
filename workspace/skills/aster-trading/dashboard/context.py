@@ -13,10 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
 
 if TYPE_CHECKING:
-    from services.risk_service import get_normalized_risk_config
-    from state.dashboard_cache import load_dashboard_snapshot
-    from state.state_service import state_service
-    from state.models import SystemState
+    from services.risk_service import get_normalized_risk_config  # type: ignore[import]
+    from state.dashboard_cache import load_dashboard_snapshot  # type: ignore[import]
+    from state.state_service import state_service  # type: ignore[import]
+    from state.models import SystemState  # type: ignore[import]
 
 # Base paths shared with dashboard server - MUST be set before other imports
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,12 +31,12 @@ if str(BASE_DIR) not in sys.path:
 
 # Now imports will work
 try:
-    from services.risk_service import get_normalized_risk_config
+    from services.risk_service import get_normalized_risk_config  # type: ignore[import]
 except Exception:
     get_normalized_risk_config = None
 
 try:
-    from state.dashboard_cache import load_dashboard_snapshot
+    from state.dashboard_cache import load_dashboard_snapshot  # type: ignore[import]
     DASHBOARD_CACHE_AVAILABLE = True
 except ImportError:
     DASHBOARD_CACHE_AVAILABLE = False
@@ -261,8 +261,8 @@ def get_global_trade_tracker():
 
 def load_state():
     try:
-        from state.state_service import state_service
-        from state.models import SystemState
+        from state.state_service import state_service  # type: ignore[import]
+        from state.models import SystemState  # type: ignore[import]
 
         now_ms = int(time.time() * 1000)
         default_state = {
@@ -376,8 +376,8 @@ def load_state():
 
 def save_state(state):
     try:
-        from state.state_service import state_service
-        from state.models import SystemState
+        from state.state_service import state_service  # type: ignore[import]
+        from state.models import SystemState  # type: ignore[import]
 
         payload = SystemState(
             running=bool(state.get('running', False)),
