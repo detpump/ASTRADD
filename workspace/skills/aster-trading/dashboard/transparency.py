@@ -411,10 +411,11 @@ def _build_risk_transparency_snapshot(enabled_symbols=None):
     enabled = enabled_symbols or get_enabled_symbols()
     positions = _get_truth_positions(enabled)
 
-    equity = _safe_float(_first_non_none(state.get('equity'), risk_data.get('equity')), 0)
-    daily_pnl = _safe_float(_first_non_none(state.get('daily_pnl'), risk_data.get('daily_pnl')), 0)
+    # Prefer risk_data from database if state values are zero/empty
+    equity = _safe_float(risk_data.get('equity') or state.get('equity'), 0)
+    daily_pnl = _safe_float(risk_data.get('daily_pnl') if risk_data.get('daily_pnl') is not None else state.get('daily_pnl'), 0)
     weekly_pnl = _safe_float(risk_data.get('weekly_pnl'), 0)
-    drawdown_pct = _safe_float(_first_non_none(state.get('drawdown_pct'), risk_data.get('drawdown_pct')), 0)
+    drawdown_pct = _safe_float(risk_data.get('drawdown_pct') if risk_data.get('drawdown_pct') is not None else state.get('drawdown_pct'), 0)
     if drawdown_pct > 0 and drawdown_pct < 1:
         drawdown_pct *= 100.0
 
