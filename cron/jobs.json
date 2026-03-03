@@ -7,7 +7,7 @@
       "name": "Reporte Trading 2h",
       "enabled": true,
       "createdAtMs": 1771983425424,
-      "updatedAtMs": 1772499776422,
+      "updatedAtMs": 1772506976170,
       "schedule": {
         "kind": "cron",
         "expr": "0 */2 * * *",
@@ -25,11 +25,11 @@
         "to": "tg:152838976"
       },
       "state": {
-        "nextRunAtMs": 1772506975918,
-        "lastRunAtMs": 1772499775923,
+        "nextRunAtMs": 1772514175918,
+        "lastRunAtMs": 1772506975922,
         "lastStatus": "error",
-        "lastDurationMs": 499,
-        "consecutiveErrors": 3,
+        "lastDurationMs": 248,
+        "consecutiveErrors": 4,
         "lastError": "Unsupported channel: telegram"
       }
     },
