@@ -63,3 +63,4 @@
 {"timestamp": "2026-03-02T22:28:50.076096Z", "timestamp_ms": 1772486930076, "symbol": "SOLUSDT", "side": "BUY", "quantity": 0.31, "price": 87.83798132, "order_id": "4125594367", "pnl": null, "status": "FILLED", "error": null, "cycle_id": null}
 {"timestamp": "2026-03-02T23:29:06.026661Z", "timestamp_ms": 1772490546026, "symbol": "HYPEUSDT", "side": "BUY", "quantity": 0.8, "price": 33.10839881, "order_id": "1573972327", "pnl": null, "status": "FILLED", "error": null, "cycle_id": null}
 {"timestamp": "2026-03-03T00:29:37.666792Z", "timestamp_ms": 1772494177666, "symbol": "SOLUSDT", "side": "BUY", "quantity": 0.3, "price": 86.34130035, "order_id": "4127184774", "pnl": null, "status": "FILLED", "error": null, "cycle_id": null}
+{"timestamp": "2026-03-03T01:30:27.195254Z", "timestamp_ms": 1772497827195, "symbol": "HYPEUSDT", "side": "BUY", "quantity": 0.79, "price": 32.64962738, "order_id": "1574976219", "pnl": null, "status": "FILLED", "error": null, "cycle_id": null}
