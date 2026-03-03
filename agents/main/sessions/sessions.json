@@ -2265,8 +2265,8 @@
     "totalTokensFresh": true
   },
   "agent:main:cron:events-trading-2h": {
-    "sessionId": "60c87d9e-b96a-408f-bcfd-dd2c3026786c",
-    "updatedAt": 1772499600010,
+    "sessionId": "c7818a74-9ca5-4999-9e51-dcac97b8381f",
+    "updatedAt": 1772506800008,
     "systemSent": true,
     "label": "Cron: Events: Signals, Positions, Market 2h",
     "skillsSnapshot": {
@@ -2341,6 +2341,80 @@
   "agent:main:cron:events-trading-2h:run:60c87d9e-b96a-408f-bcfd-dd2c3026786c": {
     "sessionId": "60c87d9e-b96a-408f-bcfd-dd2c3026786c",
     "updatedAt": 1772499600010,
+    "systemSent": true,
+    "label": "Cron: Events: Signals, Positions, Market 2h",
+    "skillsSnapshot": {
+      "prompt": "\n\nThe following skills provide specialized instructions for specific tasks.\nUse the read tool to load a skill's file when the task matches its description.\nWhen a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.\n\n<available_skills>\n  <skill>\n    <name>healthcheck</name>\n    <description>Host security hardening and risk-tolerance configuration for OpenClaw deployments. Use when a user asks for security audits, firewall/SSH/update hardening, risk posture, exposure review, OpenClaw cron scheduling for periodic checks, or version status checks on a machine running OpenClaw (laptop, workstation, Pi, VPS).</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>openai-image-gen</name>\n    <description>Batch-generate images via OpenAI Images API. Random prompt sampler + `index.html` gallery.</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/openai-image-gen/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>openai-whisper-api</name>\n    <description>Transcribe audio via OpenAI Audio Transcriptions API (Whisper).</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/openai-whisper-api/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>skill-creator</name>\n    <description>Create or update AgentSkills. Use when designing, structuring, or packaging skills with scripts, references, and assets.</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator/SKILL.md</location>\n  </skill>\n  <skill>\n    <name>weather</name>\n    <description>Get current weather and forecasts via wttr.in or Open-Meteo. Use when: user asks about weather, temperature, or forecasts for any location. NOT for: historical weather data, severe weather alerts, or detailed meteorological analysis. No API key needed.</description>\n    <location>/opt/homebrew/lib/node_modules/openclaw/skills/weather/SKILL.md</location>\n  </skill>\n</available_skills>",
+      "skills": [
+        {
+          "name": "healthcheck"
+        },
+        {
+          "name": "openai-image-gen",
+          "primaryEnv": "OPENAI_API_KEY"
+        },
+        {
+          "name": "openai-whisper-api",
+          "primaryEnv": "OPENAI_API_KEY"
+        },
+        {
+          "name": "skill-creator"
+        },
+        {
+          "name": "weather"
+        }
+      ],
+      "resolvedSkills": [
+        {
+          "name": "healthcheck",
+          "description": "Host security hardening and risk-tolerance configuration for OpenClaw deployments. Use when a user asks for security audits, firewall/SSH/update hardening, risk posture, exposure review, OpenClaw cron scheduling for periodic checks, or version status checks on a machine running OpenClaw (laptop, workstation, Pi, VPS).",
+          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck/SKILL.md",
+          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/healthcheck",
+          "source": "openclaw-bundled",
+          "disableModelInvocation": false
+        },
+        {
+          "name": "openai-image-gen",
+          "description": "Batch-generate images via OpenAI Images API. Random prompt sampler + `index.html` gallery.",
+          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/openai-image-gen/SKILL.md",
+          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/openai-image-gen",
+          "source": "openclaw-bundled",
+          "disableModelInvocation": false
+        },
+        {
+          "name": "openai-whisper-api",
+          "description": "Transcribe audio via OpenAI Audio Transcriptions API (Whisper).",
+          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/openai-whisper-api/SKILL.md",
+          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/openai-whisper-api",
+          "source": "openclaw-bundled",
+          "disableModelInvocation": false
+        },
+        {
+          "name": "skill-creator",
+          "description": "Create or update AgentSkills. Use when designing, structuring, or packaging skills with scripts, references, and assets.",
+          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator/SKILL.md",
+          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/skill-creator",
+          "source": "openclaw-bundled",
+          "disableModelInvocation": false
+        },
+        {
+          "name": "weather",
+          "description": "Get current weather and forecasts via wttr.in or Open-Meteo. Use when: user asks about weather, temperature, or forecasts for any location. NOT for: historical weather data, severe weather alerts, or detailed meteorological analysis. No API key needed.",
+          "filePath": "/opt/homebrew/lib/node_modules/openclaw/skills/weather/SKILL.md",
+          "baseDir": "/opt/homebrew/lib/node_modules/openclaw/skills/weather",
+          "source": "openclaw-bundled",
+          "disableModelInvocation": false
+        }
+      ],
+      "version": 0
+    },
+    "modelProvider": "anthropic",
+    "model": "claude-opus-4-6",
+    "contextTokens": 200000
+  },
+  "agent:main:cron:events-trading-2h:run:c7818a74-9ca5-4999-9e51-dcac97b8381f": {
+    "sessionId": "c7818a74-9ca5-4999-9e51-dcac97b8381f",
+    "updatedAt": 1772506800008,
     "systemSent": true,
     "label": "Cron: Events: Signals, Positions, Market 2h",
     "skillsSnapshot": {
