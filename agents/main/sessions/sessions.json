@@ -64,7 +64,7 @@
   },
   "agent:main:main": {
     "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
-    "updatedAt": 1772499776937,
+    "updatedAt": 1772503139501,
     "systemSent": true,
     "abortedLastRun": false,
     "chatType": "direct",
@@ -153,7 +153,7 @@
     "contextTokens": 200000,
     "systemPromptReport": {
       "source": "run",
-      "generatedAt": 1772499776714,
+      "generatedAt": 1772503139255,
       "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
       "sessionKey": "agent:main:main",
       "provider": "anthropic",
@@ -1784,7 +1784,7 @@
   },
   "agent:main:cron:0f65bca4-8d31-40d6-8d98-d1f8e1a97258": {
     "sessionId": "04d5aa5f-952f-4fd1-9d09-20e8475f6928",
-    "updatedAt": 1772499538444,
+    "updatedAt": 1772503138680,
     "systemSent": true,
     "label": "Cron: HB trading 5m - Health Check",
     "skillsSnapshot": {
@@ -2212,7 +2212,7 @@
   },
   "agent:main:cron:0f65bca4-8d31-40d6-8d98-d1f8e1a97258:run:04d5aa5f-952f-4fd1-9d09-20e8475f6928": {
     "sessionId": "04d5aa5f-952f-4fd1-9d09-20e8475f6928",
-    "updatedAt": 1772499538444,
+    "updatedAt": 1772503138680,
     "systemSent": true,
     "label": "Cron: HB trading 5m - Health Check",
     "skillsSnapshot": {
