@@ -255,7 +255,54 @@ def _get_truth_positions(enabled_symbols=None):
     """Single source of truth for open positions with DB-first priority."""
     enabled = {s.upper() for s in (enabled_symbols or []) if isinstance(s, str)}
 
-    # 1) DB snapshot via state_service
+    # 1) V3 positions_v3 table (new V3 architecture)
+    try:
+        import sqlite3
+        db_path = '/Users/FIRMAS/.openclaw/workspace/skills/aster-trading/logs/aster.db'
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM positions_v3 WHERE status = 'OPEN'")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if rows:
+            normalized = []
+            for row in rows:
+                symbol = str(row['symbol']).upper()
+                if enabled and symbol not in enabled:
+                    continue
+                # Calculate positionAmt from side and quantity
+                qty = row['quantity'] or 0
+                position_amt = qty if row['side'].upper() == 'LONG' else -abs(qty)
+                # Calculate notional and estimated margin
+                current_price = row['current_price'] or row['entry_price'] or 0
+                notional = row['notional'] or (qty * current_price)
+                leverage = row['leverage'] or 1
+                estimated_margin = notional / leverage if leverage > 0 else notional
+                
+                merged = {
+                    'symbol': symbol,
+                    'positionAmt': position_amt,
+                    'entryPrice': row['entry_price'],
+                    'markPrice': current_price,
+                    'unRealizedProfit': row['unrealized_pnl'] or 0.0,
+                    'liquidationPrice': 0.0,
+                    'leverage': leverage,
+                    'updateTime': row['open_time'] or 0,
+                    'notional': notional,
+                    'isolatedMargin': estimated_margin,
+                }
+                norm = _normalize_position(merged)
+                if _is_open_position(norm):
+                    normalized.append(norm)
+            if normalized:
+                DATA_SOURCE_FLAGS['positions'] = 'v3_db'
+                return normalized
+    except Exception:
+        pass
+
+    # 2) V2 positions table fallback
     try:
         from state.state_service import state_service
         db_positions = state_service.get_positions()

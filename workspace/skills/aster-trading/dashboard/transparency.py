@@ -80,10 +80,18 @@ def _load_trade_state_positions():
         normalized = {}
         for row in rows:
             sym = row['symbol'].upper()
+            # Map V3 fields to what dashboard expects for exposure calculations
+            quantity = row['quantity'] or 0
+            current_price = row['current_price'] or row['entry_price'] or 0
+            notional = row['notional'] or (quantity * current_price)
+            # Estimate margin as notional / leverage
+            leverage = row['leverage'] or 1
+            estimated_margin = notional / leverage if leverage > 0 else notional
+            
             normalized[sym] = {
                 'symbol': sym,
                 'side': row['side'],
-                'size': row['quantity'],
+                'size': quantity,
                 'entry_price': row['entry_price'],
                 'avg_entry_price': row['entry_price'],
                 'last_update_ms': row['updated_at'],
@@ -91,6 +99,12 @@ def _load_trade_state_positions():
                 'tp1_hit': bool(row['tp1_hit']),
                 'tp2_hit': bool(row['tp2_hit']),
                 'sl_hit': False,
+                # Fields needed for exposure calculation
+                'markPrice': current_price,
+                'positionAmt': quantity,
+                'notional': notional,
+                'isolatedMargin': estimated_margin,
+                'margin': estimated_margin,
                 'raw': dict(row),
             }
         with open(debug_log, 'a') as f:
@@ -446,7 +460,8 @@ def _build_risk_transparency_snapshot(enabled_symbols=None):
     # Prefer risk_data from database if state values are zero/empty
     equity = _safe_float(risk_data.get('equity') or state.get('equity'), 0)
     daily_pnl = _safe_float(risk_data.get('daily_pnl') if risk_data.get('daily_pnl') is not None else state.get('daily_pnl'), 0)
-    weekly_pnl = _safe_float(risk_data.get('weekly_pnl'), 0)
+    # weekly_pnl not in V3 schema yet - check both risk_data and state
+    weekly_pnl = _safe_float(risk_data.get('weekly_pnl') if risk_data.get('weekly_pnl') is not None else state.get('weekly_pnl'), 0)
     drawdown_pct = _safe_float(risk_data.get('drawdown_pct') if risk_data.get('drawdown_pct') is not None else state.get('drawdown_pct'), 0)
     if drawdown_pct > 0 and drawdown_pct < 1:
         drawdown_pct *= 100.0
