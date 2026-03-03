@@ -64,7 +64,7 @@
   },
   "agent:main:main": {
     "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
-    "updatedAt": 1772495938882,
+    "updatedAt": 1772499776937,
     "systemSent": true,
     "abortedLastRun": false,
     "chatType": "direct",
@@ -153,7 +153,7 @@
     "contextTokens": 200000,
     "systemPromptReport": {
       "source": "run",
-      "generatedAt": 1772495938720,
+      "generatedAt": 1772499776714,
       "sessionId": "06b35c77-5aab-440b-9a9e-d570e04bd4b8",
       "sessionKey": "agent:main:main",
       "provider": "anthropic",
@@ -1784,7 +1784,7 @@
   },
   "agent:main:cron:0f65bca4-8d31-40d6-8d98-d1f8e1a97258": {
     "sessionId": "04d5aa5f-952f-4fd1-9d09-20e8475f6928",
-    "updatedAt": 1772495938132,
+    "updatedAt": 1772499538444,
     "systemSent": true,
     "label": "Cron: HB trading 5m - Health Check",
     "skillsSnapshot": {
@@ -1888,7 +1888,7 @@
   },
   "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629": {
     "sessionId": "b5ebd922-9e1b-4181-a577-c90d2f52c02e",
-    "updatedAt": 1772492575924,
+    "updatedAt": 1772499775925,
     "systemSent": true,
     "label": "Cron: Reporte Trading 2h",
     "skillsSnapshot": {
@@ -2212,7 +2212,7 @@
   },
   "agent:main:cron:74aba2d6-d964-4470-a00e-d93da7e80629:run:b5ebd922-9e1b-4181-a577-c90d2f52c02e": {
     "sessionId": "b5ebd922-9e1b-4181-a577-c90d2f52c02e",
-    "updatedAt": 1772492575924,
+    "updatedAt": 1772499775925,
     "systemSent": true,
     "label": "Cron: Reporte Trading 2h",
     "skillsSnapshot": {
@@ -2266,7 +2266,7 @@
   },
   "agent:main:cron:0f65bca4-8d31-40d6-8d98-d1f8e1a97258:run:04d5aa5f-952f-4fd1-9d09-20e8475f6928": {
     "sessionId": "04d5aa5f-952f-4fd1-9d09-20e8475f6928",
-    "updatedAt": 1772495938132,
+    "updatedAt": 1772499538444,
     "systemSent": true,
     "label": "Cron: HB trading 5m - Health Check",
     "skillsSnapshot": {
@@ -2320,7 +2320,7 @@
   },
   "agent:main:cron:events-trading-2h": {
     "sessionId": "60c87d9e-b96a-408f-bcfd-dd2c3026786c",
-    "updatedAt": 1772492400363,
+    "updatedAt": 1772499600010,
     "systemSent": true,
     "label": "Cron: Events: Signals, Positions, Market 2h",
     "skillsSnapshot": {
@@ -2394,7 +2394,7 @@
   },
   "agent:main:cron:events-trading-2h:run:60c87d9e-b96a-408f-bcfd-dd2c3026786c": {
     "sessionId": "60c87d9e-b96a-408f-bcfd-dd2c3026786c",
-    "updatedAt": 1772492400363,
+    "updatedAt": 1772499600010,
     "systemSent": true,
     "label": "Cron: Events: Signals, Positions, Market 2h",
     "skillsSnapshot": {
