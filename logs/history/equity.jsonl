@@ -3229,3 +3229,7 @@
 {"timestamp": "2026-03-03T01:14:50.216714Z", "timestamp_ms": 1772496890216, "equity": 38.732005300000004, "daily_pnl": -0.976688529999997, "drawdown_pct": 0.02824671450502487, "positions_pnl": {}}
 {"timestamp": "2026-03-03T01:16:01.523734Z", "timestamp_ms": 1772496961523, "equity": 38.644394410000004, "daily_pnl": -1.0642994199999976, "drawdown_pct": 0.030444797706326077, "positions_pnl": {}}
 {"timestamp": "2026-03-03T01:17:13.485428Z", "timestamp_ms": 1772497033485, "equity": 38.656428760000004, "daily_pnl": -1.0522650699999971, "drawdown_pct": 0.030142866033521704, "positions_pnl": {}}
+{"timestamp": "2026-03-03T01:18:24.551903Z", "timestamp_ms": 1772497104551, "equity": 38.55623769, "daily_pnl": -1.1524561399999982, "drawdown_pct": 0.03265657532111591, "positions_pnl": {}}
+{"timestamp": "2026-03-03T01:19:35.469591Z", "timestamp_ms": 1772497175469, "equity": 38.618637150000005, "daily_pnl": -1.0900566799999964, "drawdown_pct": 0.031091025595547894, "positions_pnl": {}}
+{"timestamp": "2026-03-03T01:20:49.365214Z", "timestamp_ms": 1772497249365, "equity": 38.6033744, "daily_pnl": -1.1053194300000015, "drawdown_pct": 0.03147395509644294, "positions_pnl": {}}
+{"timestamp": "2026-03-03T01:22:02.816433Z", "timestamp_ms": 1772497322816, "equity": 38.644658820000004, "daily_pnl": -1.0640350099999978, "drawdown_pct": 0.03043816388284528, "positions_pnl": {}}
